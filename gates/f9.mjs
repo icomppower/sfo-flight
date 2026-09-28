@@ -21,8 +21,8 @@ import { CONFIGS, B77W_TO_TRIM } from '../fdm/configs.ts';
 
 const TRIM_TOL = 0.002, Q = 1 / 1024;
 // SPEC §12 as the gate reads it
-const MISSION = { 1: { ac: 'b77w', start: 'final9', rwy: '28R', time: 'golden', steps: 7 }, 2: { ac: 'c172', start: 'final3', rwy: '28R', steps: 5 }, 3: { ac: 'c172', start: 'runway', rwy: '28R', steps: 6 }, 4: { ac: 'c172', start: 'ggb', steps: 4 } };
-const HOLDS = { 1: [0, 0, 0, 0, 0, 0, 0], 2: [3, 5, 0, 0, 0], 3: [0, 0, 0, 0, 5, 0], 4: [0, 3, 3, 10] };
+const MISSION = { 1: { ac: 'b77w', start: 'final9', rwy: '28R', time: 'golden', steps: 7 }, 2: { ac: 'c172', start: 'final3', rwy: '28R', steps: 5 }, 3: { ac: 'c172', start: 'runway', rwy: '28R', steps: 7 }, 4: { ac: 'c172', start: 'ggb', steps: 4 } };
+const HOLDS = { 1: [0, 0, 0, 0, 0, 0, 0], 2: [3, 5, 0, 0, 0], 3: [0, 0, 0, 0, 5, 0, 0], 4: [0, 3, 3, 10] };
 
 function trims() {
   const fail = [], row = (ac, o, want, name) => { const t = trimFly(ac, { alt: 600, seconds: 150, ...o }).sim.trimPos; console.log(`  trim ${name}: table ${want.toFixed(4)}, trimFly ${t.toFixed(4)}`); if (Math.abs(t - want) > TRIM_TOL) fail.push(`${name} trim ${want} vs trimFly ${t.toFixed(4)}`); };
@@ -45,7 +45,7 @@ const INSTALL = (id) => {
   const P = {
     1: [() => g.mcpOn, () => ap().at, () => ap().on, () => ap().gsArm || ap().vert === 'GS', () => ap().vert === 'GS', td, stopped],
     2: [(s) => Math.abs(geo(s).lat) < 40 && Math.abs(((s.euler.psi / D - R.crs + 540) % 360) - 180) < 10, (s) => s.cas >= 58 && s.cas <= 78 && Math.abs(gsDots(s)) < 1.5, (s) => agl(s) < 100 && thr() <= 0.1, td, stopped],
-    3: [(s) => g.c.park < 0.5 && s.ac.flaps.detents[g.c.flap] === 10 && g.c.mixture > 0.5 && Math.abs(s.trimPos - 0.0205) < 0.002, () => thr() >= 0.95, (s) => s.cas >= 55, (s) => !s.onGround && agl(s) > 20, (s) => !s.onGround && s.cas >= 68 && s.cas <= 82, (s) => !s.onGround && agl(s) >= 1000],
+    3: [(s) => g.c.park < 0.5 && s.ac.flaps.detents[g.c.flap] === 10 && g.c.mixture > 0.5 && Math.abs(s.trimPos - 0.0205) < 0.002, () => thr() >= 0.95, (s) => s.cas >= 55, (s) => !s.onGround && agl(s) > 20, (s) => !s.onGround && s.cas >= 68 && s.cas <= 82, (s) => !s.onGround && agl(s) >= 300 && s.ac.flaps.detents[g.c.flap] === 0, (s) => !s.onGround && agl(s) >= 1000],
     4: [() => g.cams.mode !== 'cockpit', (s) => !s.onGround && Math.abs(s.euler.phi / D) >= 10 && Math.abs(s.euler.phi / D) <= 35, (s) => !s.onGround && Math.abs(s.euler.phi / D) < 5, (s) => !s.onGround && s.altMsl / FT >= 1200 && s.altMsl / FT <= 1800],
   }[id];
   window.__rec = { frames: [], t0: performance.now() };
@@ -105,7 +105,7 @@ const ROBOT = (mode) => {
   requestAnimationFrame(tick);
 };
 
-const snap = (page) => page.evaluate(() => { const g = window.__sfo, K = g.checklist; return { state: g.state, i: K?.i, done: K?.done, crashed: g.flight?.sim.crashed, landing: g.flight?.scorer.landing, robot: window.__robot?.phase, brakes: window.__robot?.brakes }; });
+const snap = (page) => page.evaluate(() => { const g = window.__sfo, K = g.checklist; return { state: g.state, i: K?.i, done: K?.done, crashed: g.flight?.sim.crashed, landing: g.flight?.scorer.landing, robot: window.__robot?.phase, brakes: window.__robot?.brakes, aglFt: g.flight ? g.flight.sim.agl / 0.3048 : 0 }; });
 
 async function mission(br, url, id, fx = {}) {
   const fail = [], req = (ok, m) => { if (!ok) fail.push(`mission ${id}: ${m}`); return ok; };
@@ -119,10 +119,10 @@ async function mission(br, url, id, fx = {}) {
     await page.evaluate(INSTALL, id);
     await page.waitForFunction(() => !window.__sfo.ui.dom.check.hidden, { timeout: 2000 }).catch(() => {});
     // ---- the load: exact start, aircraft, runway, time, checklist on its first step, overlay shown
-    const L = await page.evaluate(() => { const g = window.__sfo, TIMES = { dawn: 6.6, day: 12.0, golden: 17.4, night: 20.6 }, d = g.ui.dom.check; return { ac: g.ac.id, start: g.opts.start, rwy: g.opts.rwy, time: g.opts.time, tod: g.app.settings.timeOfDay, todWant: TIMES[g.opts.time], m: g.checklist.m.id, i: g.checklist.i, n: g.checklist.m.steps.length, shown: !d.hidden && d.getBoundingClientRect().height > 20, text: d.querySelector('.ck-text').textContent, want: g.ui.L.steps[g.checklist.m.id][g.checklist.m.steps[0].id], startName: g.startName }; });
+    const L = await page.evaluate(() => { const g = window.__sfo, TIMES = { dawn: 6.6, day: 12.0, golden: 17.4, night: 20.6 }, d = g.ui.dom.check; return { ac: g.ac.id, start: g.opts.start, rwy: g.opts.rwy, time: g.opts.time, tod: g.app.settings.timeOfDay, todWant: TIMES[g.opts.time], m: g.checklist.m.id, i: g.checklist.i, n: g.checklist.m.steps.length, shown: !d.hidden && d.getBoundingClientRect().height > 20, list: [...d.querySelectorAll('.ck-list li')].map((li) => li.className).join(','), text: d.querySelector('.ck-text').textContent, want: g.ui.L.steps[g.checklist.m.id][g.checklist.m.steps[0].id], startName: g.startName }; });
     const M = MISSION[id];
     req(L.ac === M.ac && L.start === M.start && (!M.rwy || L.rwy === M.rwy) && (!M.time || L.time === M.time) && Math.abs(L.tod - L.todWant) < 0.01, `loaded ${JSON.stringify(L)}`);
-    req(L.m === id && L.i === 0 && L.n === M.steps && L.shown && L.text === L.want, `checklist not on its first step: ${JSON.stringify(L)}`);
+    req(L.m === id && L.i === 0 && L.n === M.steps && L.shown && L.text === L.want && L.list === ['cur', ...Array(M.steps - 1).fill('')].join(','), `checklist not on its first step: ${JSON.stringify(L)}`);
     if (fx.loadOnly) return fail;
     // ---- scripted inputs
     const keyShift = async (k) => { await page.keyboard.down('ShiftLeft'); await page.keyboard.press(k); await page.keyboard.up('ShiftLeft'); };
@@ -136,21 +136,26 @@ async function mission(br, url, id, fx = {}) {
       await sleep(6000);
       const open = await snap(page);
       req(open.i === 1, `throttle closed for 6 s, but the checklist is on step ${open.i + 1} (the throttle step must stay open)`);
+      const lv = await page.$eval('.sf-check', (d) => ({ live: d.querySelector('.ck-live').textContent, marks: [...d.querySelectorAll('.ck-list li i')].map((i) => i.textContent).join('') }));
+      req(/0 %/.test(lv.live) && lv.marks.startsWith('✓▶○'), `step list / live value on the throttle step: ${JSON.stringify(lv)}`);
       if (fx.stopEarly) return fail.concat(await finishTiming(page, id, true));
       await page.evaluate(ROBOT, 'takeoff');
     } else if (id === 4) { await sleep(800); await page.keyboard.press('KeyC'); await sleep(1000); await page.evaluate(ROBOT, 'sight'); }
     if (fx.stopEarly) { await sleep(4000); return fail.concat(await finishTiming(page, id, true)); }
-    let braking = false, last = '', t0 = Date.now();
+    let braking = false, flapsUp = false, last = '', t0 = Date.now();
     while (Date.now() - t0 < 480000) {
       const r = await snap(page);
       const line = `step ${r.i} ${r.robot || ''}`; if (line !== last) { last = line; console.log(`  mission ${id}: ${line}`); }
       if (r.brakes && !braking) { await page.keyboard.down('KeyB'); braking = true; }
+      if (id === 3 && !flapsUp && r.robot === 'climb' && r.aglFt > 350) { await page.keyboard.down('ShiftLeft'); await page.keyboard.press('KeyF'); await page.keyboard.up('ShiftLeft'); flapsUp = true; }
       if (r.crashed || r.state === 'ended' || (id > 2 && r.done)) break;
       await sleep(400);
     }
     if (braking) await page.keyboard.up('KeyB');
     if (id <= 2) await page.waitForFunction(() => window.__sfo.state === 'ended', { timeout: 30000 }).catch(() => {});
     fail.push(...await finishTiming(page, id, false));
+    const marks = await page.$$eval('.sf-check .ck-list li.done', (l) => l.length).catch(() => -1);
+    if (id > 2) req(marks === MISSION[id].steps, `${marks} of ${MISSION[id].steps} steps checked ✓ in the list at the end`);
     if (id <= 2) {
       const r = await snap(page), min = id === 1 ? 80 : 70;
       console.log(`  mission ${id}: ${r.crashed ? 'crashed ' + r.crashed : r.landing ? `landed ${r.landing.runway} score ${r.landing.score} (${r.landing.grade}), sink ${Math.round(r.landing.sinkFpm)} fpm` : 'no landing'}`);
@@ -233,7 +238,7 @@ async function layout(br, url, vp, lang, fx = {}) {
     await sleep(800);
     if (fx.cover) await page.evaluate(() => { const b = document.querySelector('.sf-cfg [data-cfg="landing"]').getBoundingClientRect(); const d = document.createElement('div'); d.style.cssText = `position:fixed;left:${b.left}px;top:${b.top}px;width:${b.width}px;height:${b.height}px;z-index:99;pointer-events:auto`; document.body.append(d); });
     const R = await page.evaluate((touch) => {
-      const mine = ['.sf-check .ck-text', '.sf-check [data-ck="skip"]', '.sf-check [data-ck="hide"]', '.sf-cfg [data-cfg="takeoff"]', '.sf-cfg [data-cfg="landing"]'].map((q) => document.querySelector(q));
+      const mine = ['.sf-check .ck-text', '.sf-check [data-ck="next"]', '.sf-check [data-ck="hide"]', '.sf-cfg [data-cfg="takeoff"]', '.sf-cfg [data-cfg="landing"]'].map((q) => document.querySelector(q));
       const others = [...document.querySelectorAll(`.sf-mcp:not([hidden]) button${touch ? ', .sf-stick, .sf-thr input, .sf-btns button' : ''}`)];
       const box = (e) => e.getBoundingClientRect();
       const hit = (e) => { const r = box(e), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!h && (h === e || e.contains(h)); };

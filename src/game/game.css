@@ -66,6 +66,12 @@ html.is-touch .tc-pad, html.is-touch .tc-stick { display: none !important; }
 .sf-check.done { border-color: #3ad06a; }
 .ck-head { display: flex; align-items: center; gap: 6px; } .ck-head small { flex: 1; min-width: 0; opacity: .8; font-size: 11px; }
 .ck-head button { height: 26px; min-width: 26px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,.25); background: #1d2530; color: #dfe8f1; font: 600 11px/1 'Inter', system-ui, sans-serif; cursor: pointer; touch-action: none; }
+.ck-list { list-style: none; margin: 8px 0 2px; padding: 0; font-size: 12px; line-height: 1.5; }
+.ck-list li { display: flex; gap: 6px; opacity: .55; } .ck-list li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ck-list li i { font-style: normal; width: 14px; flex: none; text-align: center; }
+.ck-list li.done { opacity: .8; } .ck-list li.done i { color: #3ad06a; font-weight: 800; } .ck-list li.cur { opacity: 1; color: #ffcf5a; font-weight: 700; }
+.ck-live { margin: 0 0 6px; font: 700 14px/1.2 'JetBrains Mono', ui-monospace, monospace; color: #4fd4ff; } .ck-live[hidden] { display: none; }
+.ck-head button[data-ck="next"] { background: #ffcf5a; color: #1a1406; border-color: #ffcf5a; font-weight: 800; }
 .ck-text { margin: 6px 0 4px; font: 700 15px/1.3 'Inter', system-ui, sans-serif; }
 .ck-key { margin: 0; } .sf-root kbd, .sf-card kbd { display: inline-block; padding: 3px 7px; border-radius: 5px; background: #2a323e; border: 1px solid rgba(255,255,255,.25); font: 600 12px/1.2 'JetBrains Mono', ui-monospace, monospace; color: #ffcf5a; }
 .sf-mcp button.arm { border-color: #ffcf5a; color: #ffcf5a; }
@@ -78,4 +84,5 @@ html.is-touch .sf-cfg { left: auto; right: 12px; top: 128px; flex-direction: col
 html.is-touch .sf-cfg button { height: 40px; padding: 0 6px; font-size: 11px; }
 html.is-touch .sf-check { left: 12px; right: 72px; top: auto; bottom: 212px; width: auto; }
 html.is-touch .ck-text { font-size: 14px; }
+html.is-touch .ck-list { display: flex; gap: 4px; margin: 4px 0 0; } html.is-touch .ck-list li span { display: none; }
 @media (max-width: 640px) { .sf-grid, .sf-missions { grid-template-columns: 1fr; } .sf-card h1 { font-size: 22px; } .sf-msg { font-size: 20px; } }

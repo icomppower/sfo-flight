@@ -16,7 +16,7 @@ const EN = {
   engine: 'Engine', master: 'Master', mags: 'Magnetos', mixture: 'Mixture', starter: 'Start engine', fuel: 'Fuel', flaps: 'Flaps', gear: 'Gear', trim: 'Trim', brakes: 'Brakes',
   axisHelp: 'Pick an action, then move a stick or press a button. Keys: press a key.',
   reset: 'Reset', done: 'Done', wait: 'Loading the flight model…',
-  missions: 'Missions', freeFlight: 'Free flight', howto: 'How to fly', checklist: 'Checklist', skip: 'Skip', hide: 'Hide', back: 'Back', stepOf: 'Step', missionDone: 'Mission complete', keyFor: 'Key',
+  missions: 'Missions', freeFlight: 'Free flight', howto: 'How to fly', checklist: 'Checklist', skip: 'Skip', next: 'Next ›', hide: 'Hide', back: 'Back', stepOf: 'Step', missionDone: 'Mission complete', keyFor: 'Key',
   m: {
     1: { name: '① Watch the 777 land itself', sub: '777 · 9 NM final 28R · golden hour' },
     2: { name: '② Land the Cessna', sub: 'C172 · 3 NM final 28R' },
@@ -26,7 +26,7 @@ const EN = {
   steps: {
     1: { panel: 'Open the autopilot panel', at: 'Click A/T — it holds the speed', ap: 'Click A/P — it flies the plane', app: 'Click APP — it follows the approach to the runway', hands: 'Hands off: wait for the glide slope to capture', touch: 'Hands off — it flares and lands', stop: 'Autobrake stops the plane — then read your score' },
     2: { centre: 'Keep the runway centred with small taps of ← →', path: 'Keep the runway at the same spot on the windshield: creeps up → tap ↓, slides down → tap ↑ (60–75 kt)', idle: 'Just above the runway: throttle to idle', flare: 'Hold ↓ gently to raise the nose a little and let it settle', brake: 'On the ground: brake to a stop' },
-    3: { tocfg: 'Press T — TAKEOFF CONFIG (flaps 10, trim, brake off)', full: 'Throttle full', roll: 'Rudder keeps the nose on the centre line — speed up to 55 kt', rotate: 'About 55 kt: hold ↓ gently until it lifts off', climb: 'Climb at about 75 kt — slowing down → lower the nose a bit', alt: 'Gentle turns, level the wings to stop turning — climb to 1,000 ft' },
+    3: { tocfg: 'Press T — TAKEOFF CONFIG (flaps 10°, trim set, parking brake off)', full: 'Push the throttle full', roll: 'Keep the nose on the centre line with the rudder while the speed builds to 55 kt', rotate: 'At 55 kt hold ↓ gently: the nose rises and it lifts off', climb: 'Climb at 70–80 kt: slowing down → lower the nose a little; too fast → raise it', flaps: 'Above 300 ft: flaps up', alt: 'Keep climbing to 1,000 ft — gentle turns, level the wings to stop turning' },
     4: { cam: 'Press C to look from another camera', bank: 'Bank gently left or right (10–30°)', level: 'Level the wings to stop turning', hold: 'Hold 1,200–1,800 ft and enjoy the bay' },
   },
   cfg: { takeoff: 'TAKEOFF CFG', landing: 'LANDING CFG', toga: 'TO/GA', set: { takeoff: 'TAKEOFF CONFIG SET', landing: 'LANDING CONFIG SET' }, ground: 'TAKEOFF CONFIG: on the ground only', air: 'LANDING CONFIG: in the air only' },
@@ -55,7 +55,7 @@ const ZH = {
   engine: '發動機', master: '總電源', mags: '磁電機', mixture: '混合比', starter: '啟動發動機', fuel: '燃油', flaps: '襟翼', gear: '起落架', trim: '配平', brakes: '剎車',
   axisHelp: '選一個動作，再推搖桿或按按鈕；鍵盤則按一個鍵。',
   reset: '重設', done: '完成', wait: '正在載入飛行模型…',
-  missions: '任務', freeFlight: '自由飛行', howto: '飛行教學', checklist: '檢查清單', skip: '跳過', hide: '隱藏', back: '返回', stepOf: '步驟', missionDone: '任務完成', keyFor: '按鍵',
+  missions: '任務', freeFlight: '自由飛行', howto: '飛行教學', checklist: '檢查清單', skip: '跳過', next: '下一步 ›', hide: '隱藏', back: '返回', stepOf: '步驟', missionDone: '任務完成', keyFor: '按鍵',
   m: {
     1: { name: '① 看 777 自動降落', sub: '777 · 28R 9 海里最後進場 · 黃昏' },
     2: { name: '② 降落塞斯納', sub: '塞斯納 172 · 28R 3 海里最後進場' },
@@ -65,7 +65,7 @@ const ZH = {
   steps: {
     1: { panel: '打開自動駕駛面板', at: '點「自動油門」— 保持速度', ap: '點「自駕」— 由它駕駛', app: '點「進場」— 沿進場路徑飛向跑道', hands: '放手：等待捕獲下滑道', touch: '放手 — 它會拉平並落地', stop: '自動剎車把飛機停下 — 然後看評分' },
     2: { centre: '輕點 ← → 讓跑道保持在正中', path: '讓跑道在擋風玻璃上保持同一位置：往上跑 → 輕點 ↓，往下滑 → 輕點 ↑（60–75 節）', idle: '接近跑道上方：油門收到慢車', flare: '輕按住 ↓ 稍微抬頭，讓飛機輕輕落下', brake: '落地後：剎車直到停止' },
-    3: { tocfg: '按 T — 起飛設定（襟翼 10、配平、放開剎車）', full: '油門推到底', roll: '用方向舵讓機頭對準中心線 — 加速到 55 節', rotate: '約 55 節：輕按住 ↓ 直到離地', climb: '以約 75 節爬升 — 速度變慢就稍微低頭', alt: '輕輕轉彎，改平機翼即停止轉彎 — 爬升到 1,000 呎' },
+    3: { tocfg: '按 T — 起飛設定（襟翼 10°、配平、放開停機剎車）', full: '油門推到底', roll: '用方向舵讓機頭對準中心線，速度增加到 55 節', rotate: '到 55 節輕按住 ↓：機頭抬起，飛機離地', climb: '以 70–80 節爬升：速度變慢 → 稍微低頭；太快 → 稍微抬頭', flaps: '高於 300 呎：收襟翼', alt: '繼續爬升到 1,000 呎 — 輕輕轉彎，改平機翼即停止轉彎' },
     4: { cam: '按 C 換個視角看看', bank: '輕輕向左或向右傾斜（10–30°）', level: '改平機翼，停止轉彎', hold: '保持 1,200–1,800 呎，欣賞灣區' },
   },
   cfg: { takeoff: '起飛設定', landing: '降落設定', toga: 'TO/GA', set: { takeoff: '起飛設定完成', landing: '降落設定完成' }, ground: '起飛設定：只能在地面使用', air: '降落設定：只能在空中使用' },

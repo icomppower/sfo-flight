@@ -64,7 +64,7 @@ class FlightGame {
     ui.on.mission = (id) => this.startMission(id);
     ui.on.howto = (state) => ui.showHowTo(this.pilot.inputKind(), () => ui.showMenu(state));
     ui.on.config = (w) => this.pilot.press(w === 'takeoff' ? 'toCfg' : w === 'landing' ? 'ldgCfg' : 'toga');
-    ui.on.checklist = (a) => { if (!this.checklist) return; if (a === 'skip') this.checklist.skip(performance.now()); else this.checklist.hidden = true; };
+    ui.on.checklist = (a) => { if (!this.checklist) return; if (a === 'next') this.checklist.skip(performance.now()); else this.checklist.hidden = true; };
     ui.on.remapDone = () => { this.pilot.padMap = loadPadMap(this.pilot.padKind); ui.showMenu(this.flight && this.state !== 'menu' ? 'paused' : 'menu'); };
     ui.on.bind = (kind, map, what, done) => this.bindNext(kind, map, what, done);
     ui.on.result = (go) => { if (go === 'replay') this.startReplay(); else if (go === 'again') { if (this.mission) this.startMission(this.mission.id); else this.startFlight(); } else { this.state = 'menu'; ui.showMenu('menu'); } };
@@ -252,7 +252,7 @@ class FlightGame {
       const live = this.state === 'flying' || this.state === 'paused';
       this.ui.setCfgBar(live, { onGround: sim.onGround, toga: this.ac.id === 'b77w' && sim.onGround });
       const K = this.checklist;
-      this.ui.showChecklist(live && K && !K.hidden ? { mission: K.m.id, i: K.i, n: K.m.steps.length, step: K.step?.id, done: K.done, hint: K.step ? hintFor(this.lang, K.step.hint, this.pilot.inputKind()) : '' } : null);
+      this.ui.showChecklist(live && K && !K.hidden ? { mission: K.m.id, i: K.i, n: K.m.steps.length, ids: K.m.steps.map((x) => x.id), step: K.step?.id, done: K.done, hint: K.step ? hintFor(this.lang, K.step.hint, this.pilot.inputKind()) : '', live: K.step?.live ? K.step.live(ctxOf(this), this.lang) : '' } : null);
       this.ui.hud({ ac: this.ac.name.replace(' (class)', ''), startName: this.startName, metar: this.wx.metar, cam: camLabel, camSub: this.state === 'paused' ? '⏸' : '', msg, msgCls: cls });
     }
   }

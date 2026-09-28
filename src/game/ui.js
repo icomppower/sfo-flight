@@ -21,7 +21,7 @@ export class GameUI {
       <div class="sf-eng" hidden></div>
       <div class="sf-help"></div>
       <div class="sf-cfg" hidden><button data-cfg="takeoff"></button><button data-cfg="landing"></button><button data-cfg="toga" hidden></button></div>
-      <div class="sf-check" hidden><div class="ck-head"><small></small><button data-ck="skip"></button><button data-ck="hide" aria-label="hide">✕</button></div><p class="ck-text"></p><p class="ck-key"><kbd></kbd></p></div>
+      <div class="sf-check" hidden><div class="ck-head"><small></small><button data-ck="next"></button><button data-ck="hide" aria-label="hide">✕</button></div><ol class="ck-list"></ol><p class="ck-text"></p><p class="ck-live"></p><p class="ck-key"><kbd></kbd></p></div>
       <div class="sf-touch">
         <div class="sf-stick"><i></i></div>
         <div class="sf-thr"><input type="range" min="0" max="100" value="0" aria-label="throttle"></div>
@@ -53,7 +53,7 @@ export class GameUI {
   setLang(lang) {
     this.lang = lang; this.L = T(lang); this.dom.help.textContent = this.L.help; document.documentElement.lang = lang === 'zh' ? 'zh-Hant' : 'en';
     for (const b of this.dom.cfg.querySelectorAll('button')) b.textContent = this.L.cfg[b.dataset.cfg];
-    this.dom.check.querySelector('[data-ck="skip"]').textContent = this.L.skip; this._ck = null;
+    this.dom.check.querySelector('[data-ck="next"]').textContent = this.L.next; this._ck = null;
   }
 
   // ---- TAKEOFF / LANDING CONFIG buttons (and the 777's TO/GA): the one that applies now is lit
@@ -64,14 +64,18 @@ export class GameUI {
     const tg = d.querySelector('[data-cfg="toga"]'); if (tg.hidden !== !st.toga) tg.hidden = !st.toga;
   }
   // ---- guided checklist: one step at a time, the key for the active input
+  // every step listed: ✓ done, ▶ current (its full text, live value and key below), ○ still to come
   showChecklist(st) {
     const d = this.dom.check; const on = !!st; if (d.hidden === on) d.hidden = !on; if (!on) return;
     const L = this.L, key = `${this.lang}|${st.mission}|${st.i}|${st.hint}|${st.done}`;
+    const live = d.querySelector('.ck-live'), lv = st.done ? '' : st.live || ''; if (live.textContent !== lv) { live.textContent = lv; live.hidden = !lv; }
     if (this._ck === key) return; this._ck = key;
-    d.querySelector('.ck-head small').textContent = st.done ? L.m[st.mission].name : `${L.m[st.mission].name} · ${L.stepOf} ${st.i + 1}/${st.n}`;
-    d.querySelector('.ck-text').textContent = st.done ? L.missionDone : L.steps[st.mission][st.step];
+    const T = L.steps[st.mission];
+    d.querySelector('.ck-head small').textContent = st.done ? `${L.m[st.mission].name} ✓` : `${L.m[st.mission].name} · ${L.stepOf} ${st.i + 1}/${st.n}`;
+    d.querySelector('.ck-list').innerHTML = st.ids.map((id, k) => `<li class="${k < st.i ? 'done' : k === st.i ? 'cur' : ''}"><i>${k < st.i ? '✓' : k === st.i ? '▶' : '○'}</i><span>${T[id]}</span></li>`).join('');
+    d.querySelector('.ck-text').textContent = st.done ? L.missionDone : T[st.step];
     const k = d.querySelector('kbd'); k.textContent = st.done ? '' : st.hint; k.parentElement.hidden = st.done || !st.hint;
-    d.querySelector('[data-ck="skip"]').hidden = st.done;
+    d.querySelector('[data-ck="next"]').hidden = st.done;
     d.classList.toggle('done', st.done);
   }
   // ---- how to fly: the reversed-pitch note and the keys for the active input

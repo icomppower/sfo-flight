@@ -18,25 +18,26 @@ export const MISSIONS = [
     { id: 'stop', hint: 'none', cond: (x) => x.stopped },
   ] },
   { id: 2, ac: 'c172', start: 'final3', rwy: '28R', time: 'day', wx: 'calm', steps: [
-    { id: 'centre', hint: 'roll', hold: 3, cond: (x) => Math.abs(x.xteM) < 40 && Math.abs(x.hdgErr) < 10 },
-    { id: 'path', hint: 'pitch', hold: 5, cond: (x) => x.cas >= 58 && x.cas <= 78 && Math.abs(x.gsDots) < 1.5 },
-    { id: 'idle', hint: 'thrIdle', cond: (x) => x.aglFt < 100 && x.thrEff <= 0.1 },
+    { id: 'centre', hint: 'roll', hold: 3, cond: (x) => Math.abs(x.xteM) < 40 && Math.abs(x.hdgErr) < 10, live: (x) => `${Math.abs(Math.round(x.xteM))} m ${x.xteM > 0 ? 'R' : 'L'}` },
+    { id: 'path', hint: 'pitch', hold: 5, cond: (x) => x.cas >= 58 && x.cas <= 78 && Math.abs(x.gsDots) < 1.5, live: (x) => `${Math.round(x.cas)} kt · ${x.gsDots > 0.5 ? '▲ high' : x.gsDots < -0.5 ? '▼ low' : '● on path'}` },
+    { id: 'idle', hint: 'thrIdle', cond: (x) => x.aglFt < 100 && x.thrEff <= 0.1, live: (x) => `${Math.round(x.aglFt)} ft · ${Math.round(x.thrEff * 100)} %` },
     { id: 'flare', hint: 'pitchUp', cond: (x) => x.touchdown },
     { id: 'brake', hint: 'brakes', cond: (x) => x.stopped },
   ] },
   { id: 3, ac: 'c172', start: 'runway', rwy: '28R', time: 'day', wx: 'calm', steps: [
     { id: 'tocfg', hint: 'toCfg', cond: (x) => x.toCfg },
-    { id: 'full', hint: 'thrUp', cond: (x) => x.thrEff >= 0.95 },
-    { id: 'roll', hint: 'rudder', cond: (x) => x.cas >= 55 },
-    { id: 'rotate', hint: 'pitchUp', cond: (x) => !x.onGround && x.aglFt > 20 },
-    { id: 'climb', hint: 'pitch', hold: 5, cond: (x) => !x.onGround && x.cas >= 68 && x.cas <= 82 },
-    { id: 'alt', hint: 'roll', cond: (x) => !x.onGround && x.aglFt >= 1000 },
+    { id: 'full', hint: 'thrUp', cond: (x) => x.thrEff >= 0.95, live: (x) => `${Math.round(x.thrEff * 100)} % / 100 %` },
+    { id: 'roll', hint: 'rudder', cond: (x) => x.cas >= 55, live: (x) => `${Math.round(x.cas)} / 55 kt` },
+    { id: 'rotate', hint: 'pitchUp', cond: (x) => !x.onGround && x.aglFt > 20, live: (x) => `${Math.round(x.cas)} kt · ${Math.round(x.aglFt)} ft` },
+    { id: 'climb', hint: 'pitch', hold: 5, cond: (x) => !x.onGround && x.cas >= 68 && x.cas <= 82, live: (x) => `${Math.round(x.cas)} kt (70–80)` },
+    { id: 'flaps', hint: 'flapsUp', cond: (x) => !x.onGround && x.aglFt >= 300 && x.flap === 0, live: (x) => `${Math.round(x.aglFt)} ft · ${x.flapDeg}°` },
+    { id: 'alt', hint: 'roll', cond: (x) => !x.onGround && x.aglFt >= 1000, live: (x) => `${Math.round(x.aglFt)} / 1,000 ft` },
   ] },
   { id: 4, ac: 'c172', start: 'ggb', rwy: '28R', time: 'golden', wx: 'calm', steps: [
     { id: 'cam', hint: 'camera', cond: (x) => x.camMoved },
-    { id: 'bank', hint: 'roll', hold: 3, cond: (x) => !x.onGround && Math.abs(x.phiDeg) >= 10 && Math.abs(x.phiDeg) <= 35 },
-    { id: 'level', hint: 'roll', hold: 3, cond: (x) => !x.onGround && Math.abs(x.phiDeg) < 5 },
-    { id: 'hold', hint: 'pitch', hold: 10, cond: (x) => !x.onGround && x.altFt >= 1200 && x.altFt <= 1800 },
+    { id: 'bank', hint: 'roll', hold: 3, cond: (x) => !x.onGround && Math.abs(x.phiDeg) >= 10 && Math.abs(x.phiDeg) <= 35, live: (x) => `${Math.round(Math.abs(x.phiDeg))}° (10–30)` },
+    { id: 'level', hint: 'roll', hold: 3, cond: (x) => !x.onGround && Math.abs(x.phiDeg) < 5, live: (x) => `${Math.round(Math.abs(x.phiDeg))}° (< 5)` },
+    { id: 'hold', hint: 'pitch', hold: 10, cond: (x) => !x.onGround && x.altFt >= 1200 && x.altFt <= 1800, live: (x) => `${Math.round(x.altFt)} ft (1,200–1,800)` },
   ] },
 ];
 
@@ -73,6 +74,7 @@ const HINT = {
     brakes: { kb: 'hold B', pad: 'brake button', yoke: 'hold B', touch: 'hold BRK' },
     camera: { kb: 'C', pad: 'camera button', yoke: 'C', touch: 'CAM' },
     toCfg: { kb: 'T', touch: 'TAKEOFF CFG' },
+    flapsUp: { kb: 'Shift+F', pad: 'flap-up button', yoke: 'Shift+F', touch: 'F▲' },
   },
   zh: {
     apPanel: { kb: 'Shift+A', pad: 'Shift+A', yoke: 'Shift+A', touch: '按 A/P' },
@@ -87,6 +89,7 @@ const HINT = {
     brakes: { kb: '按住 B', pad: '剎車鍵', yoke: '按住 B', touch: '按住 BRK' },
     camera: { kb: 'C', pad: '視角鍵', yoke: 'C', touch: 'CAM' },
     toCfg: { kb: 'T', touch: '起飛設定' },
+    flapsUp: { kb: 'Shift+F', pad: '收襟翼鍵', yoke: 'Shift+F', touch: 'F▲' },
   },
 };
 export function hintFor(lang, hint, kind) { const h = (HINT[lang] || HINT.en)[hint] || {}; return h[kind] ?? (kind === 'mac' ? h.kb : null) ?? h.kb ?? ''; }
@@ -106,6 +109,7 @@ export function ctxOf(g) {
     aglFt: Math.max(0, s.agl / FT), cas: s.cas, phiDeg: s.euler.phi / D, altFt: s.altMsl / FT,
     xteM: xte, hdgErr: ((s.euler.psi / D - rwy.crs + 540) % 360) - 180, gsDots,
     touchdown: s.onGround && s.touchdowns.length > 0, stopped: !!f.scorer.landing?.complete || (s.onGround && s.touchdowns.length > 0 && s.gs < 1 * KT),
+    flap: g.c.flap, flapDeg: g.ac.flaps.detents[g.c.flap],
     toCfg: g.c.park < 0.5 && g.c.flap === cfgT.flap && (g.ac.id !== 'c172' || g.c.mixture > 0.5) && Math.abs(s.trimPos - takeoffTrim(g.ac, s.mass)) < 0.002,
   };
 }
