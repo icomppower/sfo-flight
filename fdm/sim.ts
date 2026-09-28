@@ -83,6 +83,7 @@ export class Sim {
   air!: Air; alpha = 0; beta = 0; alphaDot = 0; tas = 0; cas = 0; mach = 0; qbar = 0; nz = 1; agl = 0; groundH = 0;
   windNed: V3 = [0, 0, 0]; forceB: V3 = [0, 0, 0]; thrust = 0; fuelFlow = 0; CL = 0; CD = 0;
   gearLoad: number[]; onGround = false; stall = false; ydWash = 0; ydOut = 0; autobrakeCmd = 0; abDecel = 0;
+  vRef = 0; gRef = 0; uOut = 0; // heavy FBW: trim reference speed (kt) and flight path (rad), and the elevator term (rad)
   // events
   crashed: CrashReason | null = null; crashT = 0; tailstrike = false; touchdowns: TouchdownEvent[] = []; airborneT = 0; maxNz = 1;
   surfaceUnder = SURF.PAVED; lastVs = 0;
@@ -149,7 +150,19 @@ export class Sim {
 
   private actuators(c: Controls): void {
     const ac = this.ac, C = ac.controls, r = C.rate.v * DT;
-    const eCmd = c.elev >= 0 ? c.elev * C.deDown.v : c.elev * C.deUp.v; // stick forward → trailing edge down
+    let eCmd = c.elev >= 0 ? c.elev * C.deDown.v : c.elev * C.deUp.v; // stick forward → trailing edge down
+    // heavy FBW (C*U-style): with the stick near neutral, speed away from the trim reference speed pitches the
+    // aircraft back toward it (positive speed stability, phugoid damping). The reference re-latches on trim-switch
+    // use, stick inputs, flap movement, on the ground and below 100 ft (flare).
+    const kU = ac.fcs.speedStab ?? 0;
+    this.uOut = 0;
+    if (kU > 0) {
+      const relatch = this.onGround || this.agl < 100 * FT || Math.abs(c.elev) > 0.25 || c.trim !== 0 || Math.abs(this.flapDeg - ac.flaps.detents[clamp(Math.round(c.flap), 0, ac.flaps.detents.length - 1)]) > 0.01 || c.ap > 0 || this.vRef === 0;
+      const Vg = Math.hypot(this.vel[0], this.vel[1], this.vel[2]);
+      const gam = Vg > 1 ? Math.asin(clamp(-this.vel[2] / Vg, -1, 1)) : 0;
+      if (relatch) { this.vRef = this.cas; this.gRef = gam; }
+      else { this.uOut = clamp(-kU * (this.cas - this.vRef) * KT + (ac.fcs.pathStab ?? 0) * (gam - this.gRef), -0.08, 0.08); eCmd += this.uOut; }
+    }
     this.de += clamp(eCmd - this.de, -r, r);
     this.da += clamp(clamp(c.ail, -1, 1) * C.da.v - this.da, -r, r);
     // yaw damper (heavy): washed-out yaw rate to rudder, airborne only
@@ -183,11 +196,12 @@ export class Sim {
     const pk = c.park > 0.5 ? 1 : 0;
     let bL = Math.max(c.brakeL, pk), bR = Math.max(c.brakeR, pk);
     const ab = ac.brakes.autobrake;
-    if (ab && c.autobrake > 0 && mains && this.gs > 15 * KT && c.thr.every((x) => x < 0.15) && c.brakeL < 0.2 && c.brakeR < 0.2) {
+    if (ab && c.autobrake > 0 && mains && c.thr.every((x) => x < 0.15) && c.brakeL < 0.2 && c.brakeR < 0.2) {
       const target = ab[clamp(Math.round(c.autobrake), 1, ab.length) - 1];
       // along-track deceleration from the velocity change of the last step
+      // to a full stop (Boeing autobrake holds until disarmed by the throttles or the pedals)
       const decel = this.abDecel;
-      this.autobrakeCmd = clamp(this.autobrakeCmd + (target - decel) * 0.4 * DT, 0, 1);
+      this.autobrakeCmd = this.gs < 3 * KT ? Math.max(this.autobrakeCmd, 0.6) : clamp(this.autobrakeCmd + (target - decel) * 0.4 * DT, 0, 1);
       bL = Math.max(bL, this.autobrakeCmd); bR = Math.max(bR, this.autobrakeCmd);
     } else if (!(c.autobrake > 0 && mains)) this.autobrakeCmd = 0;
     const br = DT / ac.brakes.rampS;
@@ -360,7 +374,6 @@ export class Sim {
     this.groundH = this.ground.height(this.pos[0], this.pos[1]);
     this.agl = h - Math.max(this.groundH, 0) - ac.model.gearGround;
     this.surfaceUnder = this.ground.surface(this.pos[0], this.pos[1]);
-    if (!init) this.actuators(c);
     // air-relative velocity
     const wind = init ? this.wind.mean(Math.max(this.agl, 1), [0, 0, 0]) : this.wind.step(Math.max(this.agl, 1), this.tas, DT, [0, 0, 0]);
     this.windNed = [wind[0], wind[1], wind[2]];
@@ -374,6 +387,7 @@ export class Sim {
     this._prevAlpha = alpha;
     this.alpha = alpha; this.beta = beta;
     const qbar = (this.qbar = 0.5 * air.rho * V * V);
+    if (!init) this.actuators(c); // after the air data: the FBW terms read this step's airspeed
     const A = ac.aero, S = ac.geom.S.v, b = ac.geom.b.v, cb = ac.geom.cbar.v;
     const Vn = Math.max(V, 5);
     const ph = this.w[0] * b / (2 * Vn), qh = this.w[1] * cb / (2 * Vn), rh = this.w[2] * b / (2 * Vn);
@@ -454,6 +468,32 @@ export class Sim {
     this.lastVs = -this.vel[2];
     this.t += DT; this.steps++;
     if (!Number.isFinite(this.pos[0] + this.pos[1] + this.pos[2] + this.w[0] + this.w[1] + this.w[2])) this.crash('overstress');
+  }
+
+  // a deep copy of the dynamic state (shares the aircraft data and the ground): for the linearization of gate F3
+  // and for "what-if" probes; the copy steps independently
+  clone(): Sim {
+    const o = Object.create(Sim.prototype) as Sim;
+    for (const [k, v] of Object.entries(this)) (o as any)[k] = Array.isArray(v) ? v.map((x) => (Array.isArray(x) ? x.slice() : x)) : v;
+    o.wind = Object.assign(Object.create(Object.getPrototypeOf(this.wind)), this.wind, { rng: Object.assign(Object.create(Object.getPrototypeOf(this.wind.rng)), this.wind.rng) });
+    (o as any)._prevAlpha = (this as any)._prevAlpha;
+    return o;
+  }
+  setPrevAlpha(a: number): void { this._prevAlpha = a; }
+  // take over a trimmed state (attitude, rates, surfaces, engines, FBW references) from another Sim flown in calm
+  // air, placed at this sim's start position, with the mean wind added to the velocity
+  adopt(t: Sim): void {
+    const pos = this.pos;
+    for (const k of ['q', 'w', 'de', 'da', 'dr', 'trimPos', 'flapDeg', 'flapIdx', 'gearPos', 'gearCmd', 'spoilerPos', 'rpm', 'running', 'n1', 'alphaDot', 'vRef', 'gRef', 'ydWash', 'mass', 'fuel'] as const) {
+      const v = (t as any)[k]; (this as any)[k] = Array.isArray(v) ? v.slice() : v;
+    }
+    this._prevAlpha = (t as any)._prevAlpha;
+    const hdgT = t.euler.psi, hdg = this.euler.psi;
+    void hdgT; void hdg;
+    const agl = -pos[2] - Math.max(this.ground.height(pos[0], pos[1]), 0);
+    const wm = this.wind.mean(Math.max(agl, 1), [0, 0, 0]);
+    this.vel = [t.vel[0] + wm[0], t.vel[1] + wm[1], t.vel[2] + wm[2]];
+    this.update(neutralControls(this.ac), true);
   }
 
   // the render model's origin (main-gear ground point) in NED, and the attitude — what the render layer reads

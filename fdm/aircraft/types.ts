@@ -53,7 +53,7 @@ export interface AircraftData {
   contacts: Contact[];
   brakes: { mu: Scalar; rampS: number; autobrake?: number[] }; // autobrake decel m/s² for settings 1..MAX
   tyre: { muSide: Scalar; roll: Scalar };
-  fcs: { yawDamper: number; yawDamperTau: number; turnCoord: number };
+  fcs: { yawDamper: number; yawDamperTau: number; turnCoord: number; speedStab?: number; pathStab?: number }; // speedStab: rad of elevator per m/s from the trim reference speed
   vspeeds: Record<string, number>; // KIAS, for the UI and the scripted pilots
   limits: { vne: number; nzCrash: number; sinkCrashFpm: number; sinkHardFpm: number };
   pilotEye: V3; // body frame, m

@@ -17,9 +17,9 @@ export interface Log { v: 1; aircraft: string; start: Start; weather: Weather; s
 
 export class Recorder {
   log: Log; prev: Controls;
-  constructor(ac: AircraftData, start: Start, weather: Weather, seed: string) {
+  constructor(ac: AircraftData, start: Start, weather: Weather, seed: string, initial?: Controls) {
     this.log = { v: 1, aircraft: ac.id, start, weather, seed, steps: 0, changes: [] };
-    this.prev = neutralControls(ac);
+    this.prev = initial ? { ...initial, thr: initial.thr.slice() } : neutralControls(ac);
   }
   // call with the quantized controls of each step, before sim.step
   add(c: Controls): void {

@@ -129,7 +129,7 @@ export const B77W: AircraftData = {
   ],
   brakes: { mu: S(0.55, 'TUNE', A, 'anti-skid maximum manual braking, fitted to the ACAP landing length'), rampS: 1.0, autobrake: [1.2, 1.5, 2.1, 2.7, 3.4] },
   tyre: { muSide: S(0.7, 'GEN', A), roll: S(0.015, 'GEN', A) },
-  fcs: { yawDamper: 1.2, yawDamperTau: 2.5, turnCoord: 0.4 },
+  fcs: { yawDamper: 2.2, yawDamperTau: 2.5, turnCoord: 0, speedStab: 0.004, pathStab: 0.1 }, // yaw damper and the C*U speed term of the 777's normal-mode FBW (gains fitted to MIL-F-8785C Level 1)
   vspeeds: { v1: 150, vr: 158, v2: 168, vref30: 149, vref25: 154, vapp: 154, climb: 250, vmo: 330, vs1: 158 },
   limits: { vne: 330, nzCrash: 3.75, sinkCrashFpm: 1200, sinkHardFpm: 600 },
   pilotEye: [31.5, -0.55, -2.3],
