@@ -11,8 +11,13 @@ export interface WorldArrays {
   outer?: Grid & { data: Int16Array }; // ring outer
   paved?: Grid & { data: Uint8Array };
   roofs?: Grid & { data: Uint16Array }; // (top + 50 m) × 10, 0 = open
+  runways?: RunwayRect[]; // title frame, NASR ends, pavement half width
+  lift?: number; // override of RUNWAY_LIFT (gate fixtures)
 }
 export const WATER = -32768;
+// the drawn runway pavement stands this far above the terrain (src/game/airfield.js): wheels roll on it
+export const RUNWAY_LIFT = 0.32;
+export interface RunwayRect { ax: number; az: number; bx: number; bz: number; halfW: number }
 
 export class WorldGround implements Ground {
   w: WorldArrays; half: number; texel: number;
@@ -43,8 +48,17 @@ export class WorldGround implements Ground {
   inSquare(x: number, z: number): boolean { return Math.abs(x) < this.half - this.texel && Math.abs(z) < this.half - this.texel; }
 
   // title-frame helpers (x east, z south)
+  onRunway(x: number, z: number): boolean {
+    for (const r of this.w.runways || []) {
+      const dx = r.bx - r.ax, dz = r.bz - r.az, L2 = dx * dx + dz * dz, t = ((x - r.ax) * dx + (z - r.az) * dz) / L2;
+      if (t < 0 || t > 1) continue;
+      const px = r.ax + dx * t - x, pz = r.az + dz * t - z;
+      if (px * px + pz * pz <= r.halfW * r.halfW) return true;
+    }
+    return false;
+  }
   heightXZ(x: number, z: number): number {
-    if (this.inSquare(x, z)) return Math.max(this.sq(x, z), this.pavedXZ(x, z) ? -90 : 0);
+    if (this.inSquare(x, z)) { const h = this.sq(x, z); return this.onRunway(x, z) ? h + (this.w.lift ?? RUNWAY_LIFT) : Math.max(h, this.pavedXZ(x, z) ? -90 : 0); }
     const { band, outer } = this.w;
     let h = band ? this.ring(band, x, z) : NaN;
     if (Number.isNaN(h) && outer) h = this.ring(outer, x, z);

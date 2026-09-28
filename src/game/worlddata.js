@@ -26,6 +26,7 @@ export async function loadWorld(app) {
     arrays.band = { data: new Int16Array(b.buffer, b.byteOffset, b.byteLength / 2), res: ring.band.res, cell: ring.band.cell, originX: ring.band.originX, originZ: ring.band.originZ };
     arrays.outer = { data: new Int16Array(o.buffer, o.byteOffset, o.byteLength / 2), res: ring.outer.res, cell: ring.outer.cell, originX: ring.outer.originX, originZ: ring.outer.originZ };
   }
+  arrays.runways = airport.runways.map((r) => ({ ax: r.ends[0].end[0], az: r.ends[0].end[1], bx: r.ends[1].end[0], bz: r.ends[1].end[1], halfW: r.widthM / 2 }));
   const ground = new WorldGround(arrays);
   const ils = [];
   for (const r of airport.runways) for (const [i, E] of r.ends.entries()) if (E.ils || E.gsDeg) ils.push(ilsFromAirport(E, r.ends[1 - i]));

@@ -17,18 +17,19 @@ export const WIND_SET: { name: string; w: Weather }[] = [
 const press = (c: Controls, code: number) => { c.ap = code; };
 
 // holds: engage with a target, settle, then measure the worst error over a window
-export function holds(world: World, w: Weather): Record<string, number> {
-  const out: Record<string, number> = {};
+// each hold: the worst and the mean error over the measuring window (D10)
+export function holds(world: World, w: Weather, apPatch: Record<string, number> = {}): Record<string, { worst: number; mean: number }> {
+  const out: Record<string, { worst: number; mean: number }> = {};
   const mk = () => new Flight(B77W, { n: 20000, e: 20000, alt: 5000 * FT, hdg: 0, cas: 250, flap: 0, gear: 0, mass: 280000 }, w, 'f4', { ...world, ground: flatGround(0, SURF.WATER) });
   const run = (setup: (c: Controls) => void, seconds: number, measureFrom: number, err: (f: Flight, c: Controls) => number) => {
-    const f = mk(); const c: Controls = { ...f.initial, thr: f.initial.thr.slice() };
+    const f = mk(); Object.assign(f.ap!, apPatch); const c: Controls = { ...f.initial, thr: f.initial.thr.slice() };
     c.mcpHdg = 0; c.mcpAlt = 5000; c.mcpVs = 0; c.mcpSpd = 250;
     press(c, AP_EVENT.AP); f.step(c); c.ap = 0;
     press(c, AP_EVENT.AT); f.step(c); c.ap = 0;
     setup(c);
-    let worst = 0;
-    for (let i = 0; i < seconds * 120; i++) { f.step(c); c.ap = 0; if (i >= measureFrom * 120) worst = Math.max(worst, Math.abs(err(f, c))); }
-    return worst;
+    let worst = 0, sum = 0, n = 0;
+    for (let i = 0; i < seconds * 120; i++) { f.step(c); c.ap = 0; if (i >= measureFrom * 120) { const e = err(f, c); worst = Math.max(worst, Math.abs(e)); sum += e; n++; } }
+    return { worst, mean: Math.abs(sum / Math.max(1, n)) };
   };
   out.hdg = run((c) => { c.mcpHdg = 90; press(c, AP_EVENT.HDG); press(c, AP_EVENT.ALT); }, 150, 90, (f) => wrap180(f.sim.euler.psi / DEG - 90));
   out.alt = run((c) => { c.mcpAlt = 7000; c.mcpVs = 1500; press(c, AP_EVENT.VS); }, 240, 150, (f) => (f.sim.altMsl / FT - 7000));
@@ -38,13 +39,14 @@ export function holds(world: World, w: Weather): Record<string, number> {
 }
 
 // coupled ILS: start 9 NM out, established, 170 kt flaps 20, gear down; flaps 30 and Vref+5 at 6 NM; APP armed.
-export function coupledIls(world: World, I: IlsDef, w: Weather, groundH: number): { maxLoc: number; maxGs: number; worstAt: number; landed: boolean; flight: Flight } {
+export function coupledIls(world: World, I: IlsDef, w: Weather, groundH: number, seed = 'f4-ils', apPatch: Record<string, number> = {}): { maxLoc: number; maxGs: number; worstAt: number; landed: boolean; flight: Flight } {
   const d0 = 9 * 1852;
   const cn = D.cos(I.crs * DEG), ce = D.sin(I.crs * DEG);
   const n = I.thrN - cn * d0, e = I.thrE - ce * d0;
   const gsD = d0 + D.hypot(I.gsN - I.thrN, I.gsE - I.thrE);
   const alt = I.gsH + gsD * D.tan(I.gsDeg * DEG);
-  const f = new Flight(B77W, { n, e, alt, hdg: I.crs, cas: 170, gamma: -I.gsDeg, flap: 4, gear: 1, mass: 230000 }, w, process.env.SEED || 'f4-ils', { ...world, ground: flatGround(groundH, SURF.PAVED) });
+  const f = new Flight(B77W, { n, e, alt, hdg: I.crs, cas: 170, gamma: -I.gsDeg, flap: 4, gear: 1, mass: 230000 }, w, seed, { ...world, ground: flatGround(groundH, SURF.PAVED) });
+  Object.assign(f.ap!, apPatch);
   const c: Controls = { ...f.initial, thr: f.initial.thr.slice() };
   c.mcpHdg = I.crs; c.mcpAlt = 3000; c.mcpSpd = 170; c.spoiler = -1; c.autobrake = 3;
   press(c, AP_EVENT.AP); f.step(c); c.ap = 0;

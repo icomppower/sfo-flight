@@ -14,7 +14,7 @@ export type Vert = 'PITCH' | 'ALT' | 'ALT*' | 'VS' | 'GS' | 'FLARE';
 export class Autopilot {
   on = false; at = false; lat: Lat = 'ROLL'; vert: Vert = 'PITCH'; locArm = false; gsArm = false;
   ils: IlsDef[]; ilsSel: IlsDef | null = null; dev: IlsDev | null = null;
-  thetaCmd = 0; alphaLp = 0; gI = 0; nzF = 1; nzI = 0; kGam = 0.5; kNz = 3.5; kNzI = 1.5; kQ = 6; kAt = 0.035; gsKmax = 3; flareMin = 0.6; kFlareGam = 0.525; spdF = 0; thrI = 0; thr = 0.5; flareSink = 0; flareTheta = 0; retard = false; altCapT = 0; disconnectReason = '';
+  thetaCmd = 0; alphaLp = 0; gI = 0; nzF = 1; nzI = 0; kGam = 0.5; kNz = 3.5; kNzI = 1.5; kQ = 6; kAt = 0.035; gsKmax = 3; kLoc = 0.0035; kLocD = 0.02; kGs = 0.003; flareMin = 0.6; kFlareGam = 0.525; spdF = 0; thrI = 0; thr = 0.5; flareSink = 0; flareTheta = 0; retard = false; altCapT = 0; disconnectReason = '';
   private _d = {} as IlsDev;
   constructor(ils: IlsDef[]) { this.ils = ils; }
 
@@ -85,7 +85,7 @@ export class Autopilot {
     else if (this.lat === 'LOC' && d && this.ilsSel) {
       // track the centreline: intercept angle from the cross-track, flown as a ground track (wind-corrected)
       const xteRate = -D.sin(this.ilsSel.crs * DEG) * s.vel[0] + D.cos(this.ilsSel.crs * DEG) * s.vel[1];
-      const want = this.ilsSel.crs * DEG + clamp(-d.xte * 0.0035 - xteRate * 0.02, -0.5, 0.5);
+      const want = this.ilsSel.crs * DEG + clamp(-d.xte * this.kLoc - xteRate * this.kLocD, -0.5, 0.5);
       phCmd = clamp(wrap180((want - trk) / DEG) * DEG * 1.6, -25 * DEG, 25 * DEG);
       if (radAlt < 300 * FT) phCmd = clamp(phCmd, -8 * DEG, 8 * DEG);
     }
@@ -105,14 +105,14 @@ export class Autopilot {
     const Vg = D.hypot(s.vel[0], s.vel[1], s.vel[2]);
     const gamma = D.asin(clamp(-s.vel[2] / Math.max(Vg, 1), -1, 1));
     let gCmd = gamma, pitchDirect: number | null = null;
-    if (this.vert === 'VS') gCmd = clamp(c.mcpVs * FT / 60 / V, -0.15, 0.15);
+    if (this.vert === 'VS') gCmd = clamp(c.mcpVs * FT / 60 / Math.max(Vg, 30), -0.15, 0.15); // the flight path is inertial
     else if (this.vert === 'ALT' || this.vert === 'ALT*') gCmd = clamp((c.mcpAlt * FT - s.altMsl) * 0.004 * (70 / V) - 0 * gamma, -0.1, 0.1);
     else if (this.vert === 'GS' && d && this.ilsSel) {
       // glide path over the ground (wind-corrected), a height-error term whose gain grows as the beam narrows, and
       // a rate term (the flight-path error) for damping
       const I = this.ilsSel;
       const dist = Math.max(300, -d.along + D.hypot(I.gsN - I.thrN, I.gsE - I.thrE));
-      const k = 0.003 * Math.min(this.gsKmax, Math.max(1, 3000 / dist));
+      const k = this.kGs * Math.min(this.gsKmax, Math.max(1, 3000 / dist));
       const gsGround = -D.atan(D.tan(I.gsDeg * DEG) * D.hypot(s.vel[0], s.vel[1]) / Math.max(Vg, 1));
       gCmd = gsGround + clamp(-d.gsErrM * k, -0.04, 0.04);
     } else if (this.vert === 'FLARE') {

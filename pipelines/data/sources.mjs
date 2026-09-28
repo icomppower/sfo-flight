@@ -154,6 +154,30 @@ function ringDem(service, cacheKey) {
     return tiff.writeTiff({ width: W, height: H, data, tie: [0, 0, 0, e0, n1, 0], scale: [cell, cell, 0] });
   };
 }
+// the ring image: 8 × 8 tiles of 250 px (15 km at 60 m), cached like the DEM pieces, assembled into one RGB GeoTIFF
+async function ringNaip({ download }) {
+  if (!tiff) throw new Error('sources: configureSources({ readTiff, writeTiff }) first');
+  const { minE: e0, minN: n0, maxE: e1, maxN: n1, naipCell: cell } = RING, N = 8, span = (e1 - e0) / N, px = span / cell, W = (e1 - e0) / cell;
+  const dir = join(root, 'data/raw/.ring-tiles'); mkdirSync(dir, { recursive: true });
+  const bands = [0, 1, 2].map(() => new Uint8Array(W * W));
+  for (let ty = 0; ty < N; ty++) for (let tx = 0; tx < N; tx++) {
+    const a = e0 + tx * span, c = a + span, d = n1 - ty * span, b = d - span, f = join(dir, `naip_${a}_${b}_${px}.rgb`);
+    let rgb;
+    if (existsSync(f)) rgb = new Uint8Array(readFileSync(f));
+    else {
+      let buf = null;
+      for (let k = 0; k < 6 && !buf; k++) { try { buf = await download(naipExport({ minE: a, minN: b, maxE: c, maxN: d }, cell)); } catch (e) { console.warn(`ring naip ${tx},${ty}: ${e.message}`); await new Promise((r) => setTimeout(r, 20000)); } }
+      if (!buf) throw new Error(`ring naip tile ${tx},${ty} failed`);
+      const t = tiff.readTiff(buf);
+      if (t.width !== px || t.height !== px) throw new Error(`ring naip ${tx},${ty}: ${t.width}x${t.height}`);
+      rgb = new Uint8Array(px * px * 3); for (let k = 0; k < px * px; k++) { rgb[k * 3] = t.bands[0][k]; rgb[k * 3 + 1] = t.bands[1][k]; rgb[k * 3 + 2] = t.bands[2][k]; }
+      writeFileSync(f, rgb);
+    }
+    for (let y = 0; y < px; y++) for (let x = 0; x < px; x++) { const k = y * px + x, o = (ty * px + y) * W + tx * px + x; bands[0][o] = rgb[k * 3]; bands[1][o] = rgb[k * 3 + 1]; bands[2][o] = rgb[k * 3 + 2]; }
+    console.log(`ring naip tile ${tx},${ty} ok`);
+  }
+  return writeRgbTiff({ width: W, height: W, bands, cell, originE: e0, originN: n1 });
+}
 const ringUrl = (service) => `${service}/exportImage?bbox=${RING.minE},${RING.minN},${RING.maxE},${RING.maxN}&size=4000,4000&note=fetched-as-8x8-tiles`;
 const B = slice.boxes;
 
@@ -176,7 +200,7 @@ export const SOURCES = [
     file: 'ring-naip.tif', key: 'ring-naip',
     title: 'USDA NAIP aerial orthoimagery (natural colour), downsampled to 60 m over the 120 km ring',
     licence: 'Public domain (US Government work, USDA Farm Service Agency NAIP)', licenceUrl: 'https://naip-usdaonline.hub.arcgis.com/',
-    url: naipExport(RING, RING.naipCell),
+    url: naipExport(RING, RING.naipCell) + '&note=fetched-as-8x8-tiles', fetch: ringNaip,
   },
   {
     file: 'terrain-3dep.tif', key: 'terrain-3dep',

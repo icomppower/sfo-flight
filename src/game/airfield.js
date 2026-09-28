@@ -7,7 +7,8 @@ import { BufferGeometry, BufferAttribute, BoxGeometry, Color, Group, InstancedMe
 import { Material } from 'harbor-engine';
 
 const FT = 0.3048;
-const LIFT = 0.32; // pavement above the terrain surface (the terrain mesh morphs by a few centimetres)
+import { RUNWAY_LIFT } from '../../fdm/world.ts';
+const LIFT = RUNWAY_LIFT; // pavement above the terrain surface (the terrain mesh morphs by a few centimetres); the flight model rolls on it
 
 function quadStrip(P, N, I, pts, y) {
   // pts: [x, z] × 4 in order; y: height per point (array) or a function of (x, z)

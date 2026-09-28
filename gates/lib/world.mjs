@@ -34,6 +34,7 @@ export function loadWorld({ ring = true } = {}) {
   }
   const ils = [];
   for (const r of airport.runways) for (const [i, E] of r.ends.entries()) if (E.ils || E.gsDeg) ils.push(ilsFromAirport(E, r.ends[1 - i]));
+  arrays.runways = airport.runways.map((r) => ({ ax: r.ends[0].end[0], az: r.ends[0].end[1], bx: r.ends[1].end[0], bz: r.ends[1].end[1], halfW: r.widthM / 2 }));
   const w = { airport, ring: ringIdx, arrays, ground: new WorldGround(arrays), ils, runways: runwaysFromAirport(airport) };
   if (ring) cache = w;
   return w;

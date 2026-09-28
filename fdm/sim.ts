@@ -352,6 +352,8 @@ export class Sim {
         const m = cross(C.pos, unrotate(this.q, Fw)); Mb[0] += m[0]; Mb[1] += m[1]; Mb[2] += m[2];
         continue;
       }
+      // on a runway / taxiway it is a strike of that part; anywhere else, flight into terrain
+      if (g.surface(pn, pe) !== SURF.PAVED) { this.crash('terrain'); return; }
       this.crash(C.kind === 'belly' ? 'gear-up' : C.kind === 'nacelle' ? 'nacelle' : C.kind === 'wingtip' ? 'wingtip' : C.kind === 'prop' ? 'prop' : C.kind === 'nose' ? 'nose' : 'terrain');
       return;
     }
