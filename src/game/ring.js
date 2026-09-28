@@ -12,13 +12,12 @@ const WATER = -32768, WATER_Y = -1.5;
 const LAYOUT = [{ tile: 6000, half: 24000, hole: 12000, grid: 'band', steps: [1, 2, 4, 8] }, { tile: 12000, half: 60000, hole: 24000, grid: 'outer', steps: [1, 2, 4, 8] }];
 const base = () => (import.meta.env && import.meta.env.BASE_URL) || '/';
 
-async function imageTexture(url) {
+async function imageTexture(url, width, height) {
   const r = await fetch(url); if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
-  const bmp = await createImageBitmap(await r.blob());
-  const cv = new OffscreenCanvas(bmp.width, bmp.height), g = cv.getContext('2d');
-  g.drawImage(bmp, 0, 0);
-  const data = new Uint8Array(g.getImageData(0, 0, bmp.width, bmp.height).data.buffer);
-  const tex = new Texture({ label: 'ringImagery', width: bmp.width, height: bmp.height, format: 'rgba8unorm', mips: true, usage: ['sample', 'copyDst'], data });
+  const rgb = new Uint8Array(await new Response(r.body.pipeThrough(new DecompressionStream('deflate'))).arrayBuffer());
+  const data = new Uint8Array(width * height * 4);
+  for (let k = 0, n = width * height; k < n; k++) { data[k * 4] = rgb[k * 3]; data[k * 4 + 1] = rgb[k * 3 + 1]; data[k * 4 + 2] = rgb[k * 3 + 2]; data[k * 4 + 3] = 255; }
+  const tex = new Texture({ label: 'ringImagery', width, height, format: 'rgba8unorm', mips: true, usage: ['sample', 'copyDst'], data });
   tex.getGPU(); generateMipmaps(tex);
   return tex;
 }
@@ -28,7 +27,7 @@ export class Ring {
 
   async build(scene, quality = 'low') {
     const I = this.index.imagery;
-    this.tex = await imageTexture(base() + 'ring/' + I.file);
+    this.tex = await imageTexture(base() + 'ring/' + I.file, I.width, I.height);
     const img = I, u0 = img.originX, v0 = img.originZ, uw = img.width * img.cell, vh = img.height * img.cell;
     this.material = new Material({ name: 'ring-terrain', color: new Color(1, 1, 1), roughness: 0.95, metalness: 0,
       textures: { ringImagery: this.tex },
@@ -39,7 +38,7 @@ export class Ring {
 	let wet = step( in.P.y, -1.0 );
 	s.albedo = mix( c, vec3f( 0.02, 0.05, 0.07 ), wet * 0.6 );
 	s.roughness = mix( 0.95, 0.12, wet );` });
-    this.lodDist = quality === 'high' ? [5000, 12000, 26000] : [3500, 9000, 22000];
+    this.lodDist = quality === 'high' ? [5000, 12000, 26000] : quality === 'mobile' ? [1500, 5000, 14000] : [3500, 9000, 22000];
     for (const Lay of LAYOUT) {
       const n = Math.round(2 * Lay.half / Lay.tile), grid = this[Lay.grid];
       for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {

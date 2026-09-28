@@ -1,0 +1,53 @@
+{
+ "format": "sfo-flight-ring/1",
+ "water": -32768,
+ "heights": "Int16LE decimetres above local MSL (NAVD88 + 0.982 m), vertex-centred, row 0 = north, zlib deflate",
+ "band": {
+  "file": "band.bin",
+  "res": 1601,
+  "cell": 30,
+  "originX": -24000,
+  "originZ": -24000,
+  "waterVertices": 1116433,
+  "sha256": "6a2aa5d8b41ede83185cd0f0ee731b135b1f12c15d7deabadc4a134bdc8d736d"
+ },
+ "outer": {
+  "file": "outer.bin",
+  "res": 1001,
+  "cell": 120,
+  "originX": -60000,
+  "originZ": -60000,
+  "waterVertices": 417511,
+  "sha256": "937ac8e3baa57267b7f5e1a453dd1abb2f7a1420ffab5f80cd17a231129de122"
+ },
+ "imagery": {
+  "file": "imagery.bin",
+  "format": "RGB8 (6 significant bits), row 0 = north, zlib deflate",
+  "width": 2000,
+  "height": 2000,
+  "cell": 60,
+  "originX": -60000,
+  "originZ": -60000,
+  "fit": [
+   {
+    "a": 1.4572994383223414,
+    "b": -80.75897140224463
+   },
+   {
+    "a": 1.4154355271701375,
+    "b": -73.36073230198875
+   },
+   {
+    "a": 1.463644072507591,
+    "b": -80.14516177680198
+   }
+  ],
+  "sha256": "efafcaaebe29bcd60e22eba9289f245a38d10f9a2561ce519712156bbf710c3c"
+ },
+ "sources": [
+  "ring-3dep.tif",
+  "ring-naip.tif",
+  "noaa-datums-9414523.json",
+  "public/terrain/aerial.bin (colour reference)"
+ ]
+}

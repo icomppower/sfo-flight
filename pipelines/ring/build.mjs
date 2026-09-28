@@ -1,18 +1,17 @@
-// The low-detail ring (SPEC §4 M1): terrain beyond the 24 km square out to 60 km, from the cached 30 m USGS 3DEP and
-// NOAA NCEI rasters and the 60 m NAIP image (pipelines/data/sources.mjs RING). Two height grids (Int16 decimetres
+// The low-detail ring (SPEC §4 M1): terrain beyond the 24 km square out to 60 km, from the cached USGS 3DEP 1 arc-second
+// DEM (30 m; water = the hydro-flattened surfaces near 0 m) and the 60 m NAIP image (pipelines/data/sources.mjs RING). Two height grids (Int16 decimetres
 // above local MSL, −32768 = water drawn flat at 0 m; vertex-centred): a 30 m band over the 48 km square around the
 // title (the Golden Gate, the city, San Bruno Mountain, the East Bay shore) and a 120 m grid over the full 120 km
 // square. The image is colour-matched to the engine's own aerial map where they overlap (per-channel linear fit over
-// land) and written as JPEG (macOS sips). Deterministic for a given cache and OS.
-//   node pipelines/ring/build.mjs → public/ring/{band.bin, outer.bin, imagery.jpg, index.json}
+// land) and stored like the engine's aerial map (RGB, 6 bits, deflate). Deterministic.
+//   node pipelines/ring/build.mjs → public/ring/{band.bin, outer.bin, imagery.bin, index.json}
 import { deflateSync, inflateSync } from 'node:zlib';
-import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readTiff } from 'harbor-engine/tools/geo/tiff.mjs';
-import { RING, writeRgbTiff } from '../data/sources.mjs';
+import { RING } from '../data/sources.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const raw = join(root, 'data/raw'), out = join(root, 'public/ring');
@@ -39,16 +38,15 @@ function sampler(t) {
   };
 }
 
-export function heights({ land, sea, msl }, { half, cell }) {
+export const WATER_BELOW_NAVD88 = 0.3; // the 1 arc-second DEM is hydro-flattened: bay and ocean read ≈ 0 m
+export function heights({ land, msl }, { half, cell }) {
   const res = Math.round(2 * half / cell) + 1, g = new Int16Array(res * res);
   let water = 0;
   for (let j = 0; j < res; j++) for (let i = 0; i < res; i++) {
-    const x = -half + i * cell, z = -half + j * cell, E = originE + x, N = originN - z;
-    const B = sea(E, N), T = land(E, N);
-    // water: NCEI seabed below −1 m (MSL) or no land data; else 3DEP land (NCEI where 3DEP is missing)
+    const x = -half + i * cell, z = -half + j * cell, T = land(originE + x, originN - z);
     let v;
-    if ((Number.isFinite(B) && B - msl < -1) || (!Number.isFinite(T) && !(Number.isFinite(B) && B - msl > 0))) { v = WATER; water++; }
-    else v = Math.max(-3276, Math.min(32767, Math.round(((Number.isFinite(T) ? T : B) - msl) * 10)));
+    if (!Number.isFinite(T) || T < WATER_BELOW_NAVD88) { v = WATER; water++; }
+    else v = Math.max(-3276, Math.min(32767, Math.round((T - msl) * 10)));
     g[j * res + i] = v;
   }
   return { data: g, res, cell, originX: -half, originZ: -half, water };
@@ -84,25 +82,25 @@ export function imagery() {
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   mkdirSync(out, { recursive: true });
   const msl = mslOffset();
-  const land = sampler(readTiff(readFileSync(join(raw, 'ring-3dep.tif')))), sea = sampler(readTiff(readFileSync(join(raw, 'ring-ncei.tif'))));
-  const band = heights({ land, sea, msl }, { half: 24000, cell: 30 }), outer = heights({ land, sea, msl }, { half: 60000, cell: 120 });
+  const land = sampler(readTiff(readFileSync(join(raw, 'ring-3dep.tif'))));
+  const band = heights({ land, msl }, { half: 24000, cell: 30 }), outer = heights({ land, msl }, { half: 60000, cell: 120 });
   const Z = { level: 9 }, sha = (b) => createHash('sha256').update(b).digest('hex');
   const bb = deflateSync(Buffer.from(band.data.buffer), Z), ob = deflateSync(Buffer.from(outer.data.buffer), Z);
   writeFileSync(join(out, 'band.bin'), bb); writeFileSync(join(out, 'outer.bin'), ob);
   const img = imagery();
-  const tif = join(out, 'imagery.tif');
-  writeFileSync(tif, writeRgbTiff({ width: img.width, height: img.height, bands: img.bands, cell: img.cell, originE: RING.minE, originN: RING.maxN }));
-  const r = spawnSync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '82', tif, '--out', join(out, 'imagery.jpg')], { encoding: 'utf8' });
-  rmSync(tif);
-  if (r.status !== 0) throw new Error('sips: ' + r.stderr);
-  const jpg = readFileSync(join(out, 'imagery.jpg'));
+  // RGB8, 6 significant bits (the engine's aerial format, D39), row 0 = north, zlib deflate: decodable in the page and
+  // in the headless App alike
+  const rgb = Buffer.alloc(img.width * img.height * 3), keep = 0xfc;
+  for (let k = 0; k < img.width * img.height; k++) { rgb[k * 3] = img.bands[0][k] & keep; rgb[k * 3 + 1] = img.bands[1][k] & keep; rgb[k * 3 + 2] = img.bands[2][k] & keep; }
+  const ib = deflateSync(rgb, Z);
+  writeFileSync(join(out, 'imagery.bin'), ib);
   const index = {
     format: 'sfo-flight-ring/1', water: WATER, heights: 'Int16LE decimetres above local MSL (NAVD88 + ' + msl.toFixed(3) + ' m), vertex-centred, row 0 = north, zlib deflate',
     band: { file: 'band.bin', res: band.res, cell: band.cell, originX: band.originX, originZ: band.originZ, waterVertices: band.water, sha256: sha(bb) },
     outer: { file: 'outer.bin', res: outer.res, cell: outer.cell, originX: outer.originX, originZ: outer.originZ, waterVertices: outer.water, sha256: sha(ob) },
-    imagery: { file: 'imagery.jpg', width: img.width, height: img.height, cell: img.cell, originX: img.originX, originZ: img.originZ, fit: img.fit, sha256: sha(jpg) },
-    sources: ['ring-3dep.tif', 'ring-ncei.tif', 'ring-naip.tif', 'noaa-datums-9414523.json', 'public/terrain/aerial.bin (colour reference)'],
+    imagery: { file: 'imagery.bin', format: 'RGB8 (6 significant bits), row 0 = north, zlib deflate', width: img.width, height: img.height, cell: img.cell, originX: img.originX, originZ: img.originZ, fit: img.fit, sha256: sha(ib) },
+    sources: ['ring-3dep.tif', 'ring-naip.tif', 'noaa-datums-9414523.json', 'public/terrain/aerial.bin (colour reference)'],
   };
   writeFileSync(join(out, 'index.json'), JSON.stringify(index, null, 1) + '\n');
-  console.log(`ring: band ${band.res}² @ ${band.cell} m (${(bb.length / 1e6).toFixed(2)} MB, ${band.water} water), outer ${outer.res}² @ ${outer.cell} m (${(ob.length / 1e6).toFixed(2)} MB), imagery ${img.width}² ${(jpg.length / 1e6).toFixed(2)} MB, fit ${JSON.stringify(img.fit.map((f) => [+f.a.toFixed(3), +f.b.toFixed(1)]))}`);
+  console.log(`ring: band ${band.res}² @ ${band.cell} m (${(bb.length / 1e6).toFixed(2)} MB, ${band.water} water), outer ${outer.res}² @ ${outer.cell} m (${(ob.length / 1e6).toFixed(2)} MB), imagery ${img.width}² ${(ib.length / 1e6).toFixed(2)} MB, fit ${JSON.stringify(img.fit.map((f) => [+f.a.toFixed(3), +f.b.toFixed(1)]))}`);
 }

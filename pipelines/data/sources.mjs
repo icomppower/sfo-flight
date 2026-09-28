@@ -154,6 +154,41 @@ function ringDem(service, cacheKey) {
     return tiff.writeTiff({ width: W, height: H, data, tie: [0, 0, 0, e0, n1, 0], scale: [cell, cell, 0] });
   };
 }
+// the ring elevation: USGS's 1 arc-second tiles (NAD83 geographic, 1/3600° posts, 6-post overlap) from the static
+// product bucket (the 3DEPElevation ImageServer timed out on the ring's lidar-dense pieces, DECISIONS D13), bilinear
+// onto the ring's 30 m UTM grid (row 0 = north). Tiles cached in data/raw/.ring-tiles/.
+const ARCSEC_TILES = ['n38w123', 'n38w122', 'n39w123', 'n39w122'];
+async function ringFromArcSecond({ download }) {
+  if (!tiff) throw new Error('sources: configureSources({ readTiff, writeTiff }) first');
+  const { utm } = await import('../../src/lib/utm-core.js');
+  const U = utm(10);
+  const dir = join(root, 'data/raw/.ring-tiles'); mkdirSync(dir, { recursive: true });
+  const tiles = [];
+  for (const id of ARCSEC_TILES) {
+    const f = join(dir, `USGS_1_${id}.tif`);
+    if (!existsSync(f)) writeFileSync(f, await download(`https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/${id}/USGS_1_${id}.tif`));
+    const t = tiff.readTiff(readFileSync(f));
+    const [, , , lon0, lat0] = t.tags[33922], [dx, dy] = t.tags[33550];
+    tiles.push({ t, lon0, lat0, dx, dy });
+    console.log(`ring 3dep ${id}: ${t.width}×${t.height} from ${lat0.toFixed(4)}, ${lon0.toFixed(4)}`);
+  }
+  const ok = (x) => x > -1000 && x < 9000;
+  const sample = (lat, lon) => {
+    for (const { t, lon0, lat0, dx, dy } of tiles) {
+      const fx = (lon - lon0) / dx - 0.5, fy = (lat0 - lat) / dy - 0.5;
+      if (fx < 0 || fy < 0 || fx >= t.width - 1 || fy >= t.height - 1) continue;
+      const i = Math.floor(fx), j = Math.floor(fy), tx = fx - i, ty = fy - j, k = j * t.width + i, D = t.data;
+      const v = [D[k], D[k + 1], D[k + t.width], D[k + t.width + 1]];
+      if (!v.every(ok)) { const g = v.filter(ok); return g.length ? g.reduce((a, b) => a + b, 0) / g.length : NaN; }
+      return (v[0] * (1 - tx) + v[1] * tx) * (1 - ty) + (v[2] * (1 - tx) + v[3] * tx) * ty;
+    }
+    return NaN;
+  };
+  const { minE: e0, maxN: n1, cell } = RING, W = (RING.maxE - RING.minE) / cell, data = new Float32Array(W * W);
+  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) { const [lat, lon] = U.fromUTM(e0 + (x + 0.5) * cell, n1 - (y + 0.5) * cell); data[y * W + x] = sample(lat, lon); }
+  return tiff.writeTiff({ width: W, height: W, data, tie: [0, 0, 0, e0, n1, 0], scale: [cell, cell, 0] });
+}
+
 // the ring image: 8 × 8 tiles of 250 px (15 km at 60 m), cached like the DEM pieces, assembled into one RGB GeoTIFF
 async function ringNaip({ download }) {
   if (!tiff) throw new Error('sources: configureSources({ readTiff, writeTiff }) first');
@@ -184,17 +219,10 @@ const B = slice.boxes;
 export const SOURCES = [
   {
     file: 'ring-3dep.tif', key: 'ring-3dep',
-    title: 'USGS 3DEP elevation, 30 m over the 120 km low-detail ring (3DEPElevation ImageServer, 8 × 8 mosaic)',
+    title: 'USGS 3DEP 1 arc-second DEM (static product tiles n38w123, n38w122, n39w123, n39w122), resampled to the 30 m UTM grid of the 120 km low-detail ring',
     licence: 'Public domain (US Government work, USGS)', licenceUrl: 'https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits',
-    url: ringUrl('https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer'),
-    fetch: ringDem('https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer', '3dep'),
-  },
-  {
-    file: 'ring-ncei.tif', key: 'ring-ncei',
-    title: 'NOAA NCEI DEM mosaic (topobathy), 30 m over the 120 km ring: the water mask (bay and ocean below 0 m)',
-    licence: 'Public domain (US Government work, NOAA NCEI)', licenceUrl: 'https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ngdc.mgg.dem:999919',
-    url: ringUrl('https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_all/ImageServer'),
-    fetch: ringDem('https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_all/ImageServer', 'ncei'),
+    url: 'https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/n38w123/USGS_1_n38w123.tif (+ n38w122, n39w123, n39w122)',
+    fetch: ringFromArcSecond,
   },
   {
     file: 'ring-naip.tif', key: 'ring-naip',

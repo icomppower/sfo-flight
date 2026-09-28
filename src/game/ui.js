@@ -164,3 +164,10 @@ export class GameUI {
   }
   dispose() { this.root.remove(); }
 }
+
+// the headless App (gates) has no DOM: the same interface, doing nothing
+export class NullUI {
+  constructor(lang, metars, opts) { this.lang = lang; this.metars = metars; this.opts = opts; this.on = {}; this.L = T(lang); this.dom = { panel: null }; this.root = { classList: { toggle() {} } }; }
+  setLang(lang) { this.lang = lang; this.L = T(lang); }
+  hud() {} setThrottleSlider() {} showMcp() {} showEngine() {} showMenu() {} hideOverlay() {} showResult() {} showRemap() {} dispose() {}
+}

@@ -75,3 +75,7 @@ the military standard; Level 1 is required for damping, Level 2 is the floor for
 ## World (F5) — frozen 2026-09-27
 - `F5.surfaceM`: 0.3 — SPEC §5: aircraft at a start position sits on the surface within ± m
 - `F5.thresholdM`: 10 — NASR threshold vs terrain runway flattening and NAIP pavement, horizontal m
+- `F6.fpsFloor`: 39 — 95th-percentile fps of the 10-minute scripted flight (gates/lib/flight-headless.mjs), 1920×1080 low tier, M4 (Metal), CPU+GPU serialised; measured 49.9 fps on 2026-09-28; floor = max( 30, 0.8 × measured )
+- `F6.frameTriangles`: 2354038 — triangles per frame, all passes, same flight; measured max 1883230 (ring 810094) on 2026-09-28; cap = 1.25 × measured
+- `F6.frameDraws`: 378 — draw calls per frame, same flight; measured max 252 on 2026-09-28; cap = 1.5 × measured
+- `F6.gpuMemoryMB`: 1145 — peak GPU memory (footprint "(graphics)" categories) of the App process over the flight; measured 916 MB on 2026-09-28; cap = 1.25 × measured

@@ -160,6 +160,8 @@ export class Instruments {
     g.strokeStyle = C.white; g.lineWidth = 1.5; g.beginPath(); g.arc(cx, cy, R, -Math.PI * 0.85, -Math.PI * 0.15); g.stroke();
     for (let a = -60; a <= 60; a += 10) { const m = Math.round(hd + a); const aa = (Math.floor(m / 10) * 10 - hd) * D; g.beginPath(); g.moveTo(cx + Math.sin(aa) * R, cy - Math.cos(aa) * R); g.lineTo(cx + Math.sin(aa) * R * 0.95, cy - Math.cos(aa) * R * 0.95); g.stroke(); }
     for (let v = Math.ceil((hd - 50) / 30) * 30; v <= hd + 50; v += 30) { const aa = (v - hd) * D; this.text(String(((v % 360) + 360) % 360 / 10).padStart(2, '0'), cx + Math.sin(aa) * R * 0.88, cy - Math.cos(aa) * R * 0.88, h * 0.035); }
+    // track line first (the runways and the course draw over it)
+    { const trk = Math.atan2(s.vel[1], s.vel[0]) - s.euler.psi; g.strokeStyle = C.green; g.lineWidth = 1; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.sin(trk) * R, cy - Math.cos(trk) * R); g.stroke(); }
     // runways within range, drawn from their ends (grid → heading-up), and the tuned localizer course
     const toScreen = (n, e) => { const dn = n - s.pos[0], de = e - s.pos[1]; const gh = s.euler.psi; const x = de * Math.cos(gh) - dn * Math.sin(gh), y = dn * Math.cos(gh) + de * Math.sin(gh); return [cx + x / (range * 1852) * R, cy - y / (range * 1852) * R]; };
     g.save(); g.beginPath(); g.arc(cx, cy, R, 0, 7); g.clip();
@@ -169,7 +171,6 @@ export class Instruments {
     g.restore();
     // own ship, track
     g.strokeStyle = C.white; g.lineWidth = 2; g.beginPath(); g.moveTo(cx, cy - 12); g.lineTo(cx - 8, cy + 8); g.moveTo(cx, cy - 12); g.lineTo(cx + 8, cy + 8); g.stroke();
-    const trk = Math.atan2(s.vel[1], s.vel[0]) - s.euler.psi; g.strokeStyle = C.green; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.sin(trk) * R, cy - Math.cos(trk) * R); g.stroke();
     // wind
     const wn = s.windNed, ws = Math.hypot(wn[0], wn[1]) / 0.514444; if (ws > 1) { const wd = Math.atan2(wn[1], wn[0]) - s.euler.psi; const wx = x0 + w * 0.12, wy = y0 + h * 0.2; g.strokeStyle = C.white; g.beginPath(); g.moveTo(wx - Math.sin(wd) * 18, wy + Math.cos(wd) * 18); g.lineTo(wx + Math.sin(wd) * 18, wy - Math.cos(wd) * 18); g.stroke(); this.text(`${Math.round(ctx.windFromMag).toString().padStart(3, '0')}°/${Math.round(ws)}`, wx, wy + 30, h * 0.03); }
     this.text(`GS ${Math.round(s.gs / 0.514444)}  TAS ${Math.round(s.tas / 0.514444)}`, x0 + 6, y0 + h * 0.06, h * 0.032, C.white, 'left');

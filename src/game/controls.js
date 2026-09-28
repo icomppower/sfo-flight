@@ -15,8 +15,8 @@ export const DEFAULT_PAD = {
   joystick: { axes: { ail: { i: 0 }, elev: { i: 1, inv: true }, thr: { i: 2, inv: true }, rud: { i: 5 } }, thrMode: 'absolute',
     buttons: { brakes: 0, flapDown: 1, flapUp: 2, gear: 3, trimDown: 4, trimUp: 5, camera: 6, menu: 7 } },
 };
-export function loadPadMap(kind) { try { const s = JSON.parse(localStorage.getItem(LS) || 'null'); if (s && s[kind]) return s[kind]; } catch { /* storage unavailable */ } return JSON.parse(JSON.stringify(DEFAULT_PAD[kind])); }
-export function savePadMap(kind, map) { try { const s = JSON.parse(localStorage.getItem(LS) || '{}') || {}; s[kind] = map; localStorage.setItem(LS, JSON.stringify(s)); } catch { /* ignore */ } }
+export function loadPadMap(kind) { if (!globalThis.document?.body) return JSON.parse(JSON.stringify(DEFAULT_PAD[kind])); try { const s = JSON.parse(localStorage.getItem(LS) || 'null'); if (s && s[kind]) return s[kind]; } catch { /* storage unavailable */ } return JSON.parse(JSON.stringify(DEFAULT_PAD[kind])); }
+export function savePadMap(kind, map) { if (!globalThis.document?.body) return; try { const s = JSON.parse(localStorage.getItem(LS) || '{}') || {}; s[kind] = map; localStorage.setItem(LS, JSON.stringify(s)); } catch { /* ignore */ } }
 
 export class PilotInput {
   constructor(app, dom) {
@@ -26,6 +26,16 @@ export class PilotInput {
     this.yoke = false; this.mouse = { x: 0, y: 0 };
     this.touch = { x: 0, y: 0, active: false, thr: null, brakes: false };
     this.pad = null; this.padKind = 'standard'; this.padMap = loadPadMap('standard'); this._btn = [];
+    if (typeof window.addEventListener !== 'function') return;
+    // one-shot keys, with the modifier as it was at the press (a quick Shift+A is over before the next frame)
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat || (e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName))) return;
+      const sh = e.shiftKey;
+      const act = { KeyF: sh ? 'flapUp' : 'flapDown', KeyG: 'gear', Slash: 'spoiler', KeyC: 'camera', KeyH: 'hud', Escape: 'menu', KeyR: 'replay', KeyP: 'pause' }[e.code]
+        || (sh && e.code === 'KeyA' ? 'apPanel' : sh && e.code === 'KeyB' ? 'park' : sh && e.code === 'KeyE' ? 'startEngine' : null);
+      if (act) this.press(act);
+      if (e.code === 'KeyY') { this.yoke = !this.yoke; this.press('yoke'); }
+    });
     window.addEventListener('mousemove', (e) => { const r = dom.getBoundingClientRect(); this.mouse.x = (e.clientX - r.left) / r.width * 2 - 1; this.mouse.y = (e.clientY - r.top) / r.height * 2 - 1; });
     window.addEventListener('wheel', (e) => { if (this.yoke) this.thr = clamp(this.thr - Math.sign(e.deltaY) * 0.05, 0, 1); }, { passive: true });
     window.addEventListener('gamepadconnected', () => this.pollPad());
@@ -54,18 +64,6 @@ export class PilotInput {
     if (k('PageDown')) this.thr = clamp(this.thr - 0.5 * dt, 0, 1);
     let trim = (k('End') || k('Numpad1') ? 1 : 0) - (k('Home') || k('Numpad7') ? 1 : 0);
     let brakes = k('KeyB') && !shift ? 1 : 0;
-    if (hit('KeyF')) this.press(shift ? 'flapUp' : 'flapDown');
-    if (hit('KeyG')) this.press('gear');
-    if (hit('KeyB') && shift) this.press('park');
-    if (hit('Slash')) this.press('spoiler');
-    if (hit('KeyA') && shift) this.press('apPanel');
-    if (hit('KeyC')) this.press('camera');
-    if (hit('KeyY')) { this.yoke = !this.yoke; this.press('yoke'); }
-    if (hit('KeyH')) this.press('hud');
-    if (hit('Escape')) this.press('menu');
-    if (hit('KeyR')) this.press('replay');
-    if (hit('KeyP')) this.press('pause');
-    if (hit('KeyE') && shift) this.press('startEngine');
     // ---- mouse yoke
     if (this.yoke) { ail = clamp(this.mouse.x / 0.7, -1, 1); elev = clamp(-this.mouse.y / 0.7, -1, 1); }
     // ---- gamepad

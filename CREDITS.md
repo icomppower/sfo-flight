@@ -10,8 +10,7 @@ SFO Flight is built from public data and published aircraft figures. Every raw f
 - `naip-bay.tif` — USDA NAIP natural-colour orthoimagery, 6 m resample over the square (ground colour map). Public domain (US Government work, USDA FSA). https://naip-usdaonline.hub.arcgis.com/
 - `naip-airport.tif`, `naip-shore.tif` — USDA NAIP, 2 m resample over the building boxes (roof colours). Public domain (US Government work, USDA FSA).
 - `noaa-datums-9414523.json` — NOAA CO-OPS tidal datums, Redwood City 9414523 (local MSL = NAVD88 + 0.982 m). Public domain (US Government work, NOAA CO-OPS).
-- `ring-3dep.tif` — USGS 3DEP elevation, 30 m over the 120 km low-detail ring (8 × 8 mosaic, pieces cached). Public domain (US Government work, USGS).
-- `ring-ncei.tif` — NOAA NCEI DEM mosaic, 30 m over the ring: the water mask. Public domain (US Government work, NOAA NCEI).
+- `ring-3dep.tif` — USGS 3DEP 1 arc-second DEM (static product tiles n38w123, n38w122, n39w123, n39w122), resampled to 30 m over the 120 km low-detail ring; its hydro-flattened water surfaces are the ring's water. Public domain (US Government work, USGS). https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/
 - `ring-naip.tif` — USDA NAIP, downsampled to 60 m over the ring, colour-matched to the square's aerial map. Public domain (US Government work, USDA FSA).
 
 ## OpenStreetMap (ODbL 1.0, © OpenStreetMap contributors, https://www.openstreetmap.org/copyright)

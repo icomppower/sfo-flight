@@ -14,10 +14,11 @@ import { AircraftView } from './aircraft.js';
 import { Cameras, CAMS } from './cameras.js';
 import { PilotInput, loadPadMap, savePadMap } from './controls.js';
 import { Instruments } from './instruments.js';
-import { GameUI, TIMES } from './ui.js';
+import { GameUI, NullUI, TIMES } from './ui.js';
 import { makeStart } from './starts.js';
 import { weatherFrom, fdmWeather, hazeFor } from './weather.js';
 import { pickLang } from './i18n.js';
+import { TestPilot } from '../../fdm/pilot.ts';
 
 const AC = { c172: C172, b77w: B77W };
 const FT = 0.3048, KT = 0.514444;
@@ -30,8 +31,9 @@ class FlightGame {
     const qs = app.qs;
     this.lang = pickLang(qs);
     this.opts = { ac: qs.get('ac') === 'b77w' ? 'b77w' : qs.get('ac') === 'c172' ? 'c172' : 'c172', start: qs.get('start') || 'runway', rwy: (qs.get('rwy') || '28R').toUpperCase(), wx: qs.get('metar') || qs.get('wind') ? 'custom' : (qs.get('wx') || 'westerly'), wind: qs.get('wind') || '', vis: qs.get('vis') || '', time: qs.get('time') && TIMES[qs.get('time')] ? qs.get('time') : 'golden', lang: this.lang };
-    this.ui = new GameUI(this.lang, W.metars, this.opts);
-    this.inst = new Instruments(this.ui.dom.panel);
+    this.headless = typeof document === 'undefined' || !document.body;
+    this.ui = this.headless ? new NullUI(this.lang, W.metars, this.opts) : new GameUI(this.lang, W.metars, this.opts);
+    this.inst = this.headless ? null : new Instruments(this.ui.dom.panel);
     this.pilot = new PilotInput(app, app.renderer.domElement || document.getElementById('app'));
     this.cams = new Cameras(app, tower);
     this.views = {};
@@ -40,7 +42,8 @@ class FlightGame {
     this.hudHidden = false; this.camIdx = 0; this.replayState = null; this.lastLog = null;
     this.wire();
     if (qs.has('autostart') || qs.has('start')) this.startFlight(); else this.ui.showMenu('menu');
-    window.__sfo = this;
+    globalThis.__sfo = this;
+    this.tools = { TestPilot, AP_EVENT }; // page gates: the scripted pilot's control laws (its outputs go through the Gamepad API)
   }
 
   wire() {
@@ -138,6 +141,8 @@ class FlightGame {
     const app = this.app;
     if (!app.freeCam) app.setFreeCam(true); // F is the flaps here, not the engine's walk/fly toggle
     if (app.autopilot) app.setAutopilot(false); // G is the gear here, not the ferry autopilot
+    // no pointer lock: the menus, the MCP and the mouse yoke need a cursor (look-around works by dragging)
+    if (!this.headless && document.pointerLockElement) document.exitPointerLock?.();
     // keys are read in every state (Esc resumes, R replays); the controls only reach the aircraft while flying
     if (!this.flight) { this.pilot.update(dt, this.scratch || (this.scratch = neutralControls(C172)), C172, { onGround: true, gs: 0 }); if (this.pilot.take().includes('menu') && this.state === 'menu') this.ui.showMenu('menu'); return; }
     if (!this.view || this.state === 'loading') return;
@@ -189,9 +194,9 @@ class FlightGame {
     this.instT += dt;
     if (this.instT > 1 / 30) {
       this.instT = 0;
-      const touch = document.documentElement.classList.contains('is-touch');
+      const touch = !this.headless && document.documentElement.classList.contains('is-touch');
       const ap = this.flight.ap, wind = this.flight.weather.wind;
-      this.inst.draw({ sim, ap, ac: this.ac, L: this.ui.L, airport: this.W.airport, hdgMag: this.magOf(sim.euler.psi), radAltFt: Math.max(0, sim.agl / FT), mcp: { spd: ap && ap.at ? this.mcp.spd : null, alt: ap && ap.on ? this.mcp.alt : null }, windFromMag: this.magOf(wind.dir * Math.PI / 180), spoilerArmed: this.c.spoiler < 0, autobrake: this.autobrake }, camName === 'cockpit' && !touch ? 'panel' : 'strip');
+      if (this.inst) this.inst.draw({ sim, ap, ac: this.ac, L: this.ui.L, airport: this.W.airport, hdgMag: this.magOf(sim.euler.psi), radAltFt: Math.max(0, sim.agl / FT), mcp: { spd: ap && ap.at ? this.mcp.spd : null, alt: ap && ap.on ? this.mcp.alt : null }, windFromMag: this.magOf(wind.dir * Math.PI / 180), spoilerArmed: this.c.spoiler < 0, autobrake: this.autobrake }, camName === 'cockpit' && !touch ? 'panel' : 'strip');
       if (this.ac.id === 'b77w') this.ui.showMcp(this.mcpOn && this.state !== 'replay', { ...this.mcp, ab: this.autobrake, spoilerArmed: this.c.spoiler < 0, lit: { AP: ap?.on, AT: ap?.at, LOC: ap && (ap.lat === 'LOC' || ap.locArm), APP: ap && (ap.vert === 'GS' || ap.gsArm), HDG: ap?.on && ap.lat === 'HDG', ALT: ap?.on && (ap.vert === 'ALT' || ap.vert === 'ALT*'), VS: ap?.on && ap.vert === 'VS' } });
       else this.ui.showEngine((this.engOn || !sim.running) && this.state !== 'replay', { ...this.eng, running: sim.running });
       this.ui.setThrottleSlider(this.pilot.thr);

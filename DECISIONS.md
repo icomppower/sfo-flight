@@ -68,3 +68,42 @@ winds (G22 gusts move the instantaneous airspeed and vertical speed further than
 The world frame is the title's UTM grid; NASR headings are true and rounded to 1°. Runway courses come from the
 surveyed end coordinates (the rounding alone puts a localizer 150 m off at 9 NM). Winds (true) and displayed headings
 (magnetic, variation 14° E) are converted with the grid convergence at the field.
+
+## D12 — Keys: the autopilot panel is Shift+A (2026-09-27)
+SPEC §7 lists WASD for pitch and roll *and* A for the autopilot panel; one key cannot do both. WASD keeps flying (as the
+list's first item says) and the panel opens with Shift+A (the 777's MCP; the 172's engine switches). Parking brake
+Shift+B, flaps up Shift+F, spoilers `/`, trim Home / End, mouse yoke Y, camera C, menu Esc, replay R.
+
+## D13 — The ring's elevation is USGS's 1 arc-second product (2026-09-27)
+The 3DEPElevation ImageServer that served Phase 2 timed out (504) on the ring's lidar-dense pieces even at 125 px, and
+later on its own service page. The ring uses the same agency's static 1 arc-second DEM tiles (n38w123, n38w122,
+n39w123, n39w122; public domain), resampled onto the 30 m UTM grid. That product is hydro-flattened (bay and ocean
+read ≈ 0 m), so water is "below 0.3 m NAVD88 or no data" and the NCEI ring source was dropped. The ring image is NAIP
+at 60 m in 8 × 8 cached tiles, colour-matched to the square's aerial map, stored like the engine's aerial map
+(RGB, 6 bits, deflate) so the page and the headless App decode it without a JPEG codec. Resolution: 30 m within 12 km
+of the square (the Golden Gate, the city, San Bruno Mountain, the East Bay shore), 120 m out to 60 km.
+
+## D14 — The wheels roll on the drawn runway (2026-09-27)
+Phase 2's airfield draws runway pavement 0.32 m above the terrain; a flight model on bare terrain would sink its
+wheels 0.32 m into it (over F5's 0.3 m). The flight model's ground adds the same `RUNWAY_LIFT` (fdm/world.ts, imported
+by the airfield) inside the NASR runway rectangles. The ALSF-2 pier over 28R's displaced threshold stood at eye height
+of a 172 starting at the runway end; approach lights over pavement are now flush and the pier starts past the end.
+
+## D15 — Deterministic transcendental functions (2026-09-27)
+Node 25 and Chrome ship different V8 versions and `Math.pow` / `exp` / `sin` differed by an ulp within 12 steps, so
+the replay hashes split. fdm/ uses its own sin, cos, atan2, asin, exp, log, pow (fdm/dmath.ts: Cody–Waite reduction,
+series, only IEEE-exact operations), a few ulp from Math; `**` is gone from fdm/. F1 now sees identical hashes.
+
+## D16 — The GA ramp is the west-field apron (2026-09-27)
+SFO has no GA ramp in OSM; the ramp start is the centroid of the west-field apron (37.616713, −122.394045), where
+business aviation parks. Both aircraft can start there (SPEC §1).
+
+## D17 — F5's imagery check measures symmetry, not colour (2026-09-27)
+SFO's runways are light concrete with dark tyre marks and bright shoulders; a "grey pavement" classifier found the
+centreline less grey than the infield (the reason SFO Approach's A1 failed). The gate averages the 2 m NAIP luminance
+across each runway along its length and finds the axis of symmetry of that profile: 0–2 m from every NASR centreline;
+a 25 m shift is measured as 26 m, a 60 m shift fails.
+
+## D18 — F6 on the headless App (2026-09-27)
+As in SFO Approach A3, the budget runs in the engine's headless App (Dawn on Metal, the M4), where frame time is CPU +
+GPU serialised and footprint reads the process's Metal memory. The page itself is checked in real Chrome by F7.
