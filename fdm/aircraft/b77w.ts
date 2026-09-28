@@ -4,11 +4,12 @@
 // CR-2144 uses δa > 0 = right roll (kept) and δr > 0 = nose left (flipped: CYδr, Clδr, Cnδr); δe > 0 trailing edge down.
 import { S } from '../table.ts';
 import type { AircraftData } from './types.ts';
+import * as D from '../dmath.ts';
 
-const LB = 0.45359237, SLUGFT2 = 1.3558179, D = Math.PI / 180;
+const LB = 0.45359237, SLUGFT2 = 1.3558179, DG = Math.PI / 180;
 const V = 'VERIFIED', A = 'APPROX';
 const MLW = 251290, M747 = 636600 * LB; // 747 reference weight of the CR-2144 derivative set (Nelson Fig. B.27)
-const sb = (64.80 / 59.64) ** 2, sl = (73.86 / 70.66) ** 2; // span² and length² ratios 777-300ER / 747-100
+const sb = D.pow(64.80 / 59.64, 2), sl = D.pow(73.86 / 70.66, 2); // span² and length² ratios 777-300ER / 747-100
 
 export const B77W: AircraftData = {
   id: 'b77w', name: 'Boeing 777-300ER (class)', icao: 'B77W',
@@ -47,7 +48,7 @@ export const B77W: AircraftData = {
   flaps: { detents: [0, 1, 5, 15, 20, 25, 30], rate: S(1.2, 'GEN', A, 'deg/s: about 25 s 0 → 30'), vfe: [340, 255, 235, 215, 195, 185, 170] },
   gearRetract: true, gearTransit: 10,
   controls: {
-    deUp: S(30 * D, 'GEN', A), deDown: S(25 * D, 'GEN', A), da: S(25 * D, 'GEN', A, 'flaperon + aileron'), dr: S(27 * D, 'GEN', A),
+    deUp: S(30 * DG, 'GEN', A), deDown: S(25 * DG, 'GEN', A), da: S(25 * DG, 'GEN', A, 'flaperon + aileron'), dr: S(27 * DG, 'GEN', A),
     rate: S(1.0, 'GEN', A, 'rad/s, hydraulic actuators'),
     trimRange: [-0.21, 0.07], trimRate: 0.009, trimIsStab: true,
   },
@@ -114,7 +115,7 @@ export const B77W: AircraftData = {
     pos: [[8, -9.61, 2.8], [8, 9.61, 2.8]],
   },
   gear: [
-    { id: 'nose', pos: [29.0, 0, 5.3], kShare: 0.07, staticDefl: 0.25, zeta: 0.55, travel: 0.55, steerMax: 7 * D, tillerMax: 70 * D, brake: null },
+    { id: 'nose', pos: [29.0, 0, 5.3], kShare: 0.07, staticDefl: 0.25, zeta: 0.55, travel: 0.55, steerMax: 7 * DG, tillerMax: 70 * DG, brake: null },
     { id: 'left', pos: [-2.22, -5.485, 5.3], kShare: 0.465, staticDefl: 0.30, zeta: 0.55, travel: 0.6, brake: 'L' },
     { id: 'right', pos: [-2.22, 5.485, 5.3], kShare: 0.465, staticDefl: 0.30, zeta: 0.55, travel: 0.6, brake: 'R' },
   ],

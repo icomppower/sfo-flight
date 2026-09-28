@@ -1,0 +1,158 @@
+{
+ "format": "sfo-flight-metars/1",
+ "source": "IEM ASOS archive (NWS METAR) via sfo-tower data/derived/ksfo-metar.min.json (2023, 2024, 2025)",
+ "picks": [
+  {
+   "id": "calm",
+   "en": "Calm, clear morning",
+   "zh": "清晨無風晴朗",
+   "epoch": 1672588560,
+   "metar": "KSFO 011556Z 27003KT 10SM CLR 11/06 A2988",
+   "wind": {
+    "dir": 270,
+    "kt": 3,
+    "gustKt": 3
+   },
+   "visSM": 10,
+   "ceilingFt": null,
+   "wx": "",
+   "tempC": 11,
+   "dewC": 6,
+   "altimInHg": 29.88,
+   "cat": "VFR"
+  },
+  {
+   "id": "westerly",
+   "en": "Afternoon westerly, gusty",
+   "zh": "午後西風陣風",
+   "epoch": 1672545360,
+   "metar": "KSFO 010356Z 27015G23KT 10SM BKN040 13/11 A2972",
+   "wind": {
+    "dir": 270,
+    "kt": 15,
+    "gustKt": 23
+   },
+   "visSM": 10,
+   "ceilingFt": 4000,
+   "wx": "",
+   "tempC": 13,
+   "dewC": 11,
+   "altimInHg": 29.72,
+   "cat": "VFR"
+  },
+  {
+   "id": "strong",
+   "en": "Strong west wind",
+   "zh": "強勁西風",
+   "epoch": 1676328960,
+   "metar": "KSFO 132256Z 29032G43KT 10SM CLR 14/07 A2988",
+   "wind": {
+    "dir": 290,
+    "kt": 32,
+    "gustKt": 43
+   },
+   "visSM": 10,
+   "ceilingFt": null,
+   "wx": "",
+   "tempC": 14,
+   "dewC": 7,
+   "altimInHg": 29.88,
+   "cat": "VFR"
+  },
+  {
+   "id": "crosswind",
+   "en": "Northwest crosswind on 28",
+   "zh": "28 號跑道西北側風",
+   "epoch": 1674446160,
+   "metar": "KSFO 230356Z 33018G24KT 10SM CLR 14/M05 A3013",
+   "wind": {
+    "dir": 330,
+    "kt": 18,
+    "gustKt": 24
+   },
+   "visSM": 10,
+   "ceilingFt": null,
+   "wx": "",
+   "tempC": 14,
+   "dewC": -5,
+   "altimInHg": 30.13,
+   "cat": "VFR"
+  },
+  {
+   "id": "south",
+   "en": "Southerly, rain",
+   "zh": "南風降雨",
+   "epoch": 1672538160,
+   "metar": "KSFO 010156Z 20014KT 7SM -RA BKN047 12/09 A2968",
+   "wind": {
+    "dir": 200,
+    "kt": 14,
+    "gustKt": 14
+   },
+   "visSM": 7,
+   "ceilingFt": 4700,
+   "wx": "-RA",
+   "tempC": 12,
+   "dewC": 9,
+   "altimInHg": 29.68,
+   "cat": "VFR"
+  },
+  {
+   "id": "marine",
+   "en": "Marine layer, low ceiling",
+   "zh": "海霧低雲",
+   "epoch": 1672725360,
+   "metar": "KSFO 030556Z 02012KT 4SM -RA BR BKN015 09/07 A2985",
+   "wind": {
+    "dir": 20,
+    "kt": 12,
+    "gustKt": 12
+   },
+   "visSM": 4,
+   "ceilingFt": 1500,
+   "wx": "-RA BR",
+   "tempC": 9,
+   "dewC": 7,
+   "altimInHg": 29.85,
+   "cat": "MVFR"
+  },
+  {
+   "id": "fog",
+   "en": "Fog, IFR",
+   "zh": "濃霧（儀器飛行）",
+   "epoch": 1674914160,
+   "metar": "KSFO 281356Z 14004KT 1/2SM FG OVC002 08/08 A3003",
+   "wind": {
+    "dir": 140,
+    "kt": 4,
+    "gustKt": 4
+   },
+   "visSM": 0.5,
+   "ceilingFt": 200,
+   "wx": "FG",
+   "tempC": 8,
+   "dewC": 8,
+   "altimInHg": 30.03,
+   "cat": "LIFR"
+  },
+  {
+   "id": "night",
+   "en": "Clear night, light wind",
+   "zh": "晴朗夜間微風",
+   "epoch": 1673592960,
+   "metar": "KSFO 130656Z 04004KT 10SM CLR 14/09 A3005",
+   "wind": {
+    "dir": 40,
+    "kt": 4,
+    "gustKt": 4
+   },
+   "visSM": 10,
+   "ceilingFt": null,
+   "wx": "",
+   "tempC": 14,
+   "dewC": 9,
+   "altimInHg": 30.05,
+   "cat": "VFR"
+  }
+ ]
+}

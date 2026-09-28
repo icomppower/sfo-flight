@@ -5,6 +5,7 @@ import { AP_EVENT } from '../autopilot.ts';
 import { ilsDeviation, type IlsDef } from '../ils.ts';
 import { DEG, FT, KT, wrap180 } from '../math.ts';
 import { B77W } from '../aircraft/b77w.ts';
+import * as D from '../dmath.ts';
 
 export const WIND_SET: { name: string; w: Weather }[] = [
   { name: 'calm', w: { wind: { dir: 0, kt: 0, gustKt: 0, turbulence: 0 }, visM: 20000, qnhHpa: 1013.25, tempC: 15 } },
@@ -39,10 +40,10 @@ export function holds(world: World, w: Weather): Record<string, number> {
 // coupled ILS: start 9 NM out, established, 170 kt flaps 20, gear down; flaps 30 and Vref+5 at 6 NM; APP armed.
 export function coupledIls(world: World, I: IlsDef, w: Weather, groundH: number): { maxLoc: number; maxGs: number; worstAt: number; landed: boolean; flight: Flight } {
   const d0 = 9 * 1852;
-  const cn = Math.cos(I.crs * DEG), ce = Math.sin(I.crs * DEG);
+  const cn = D.cos(I.crs * DEG), ce = D.sin(I.crs * DEG);
   const n = I.thrN - cn * d0, e = I.thrE - ce * d0;
-  const gsD = d0 + Math.hypot(I.gsN - I.thrN, I.gsE - I.thrE);
-  const alt = I.gsH + gsD * Math.tan(I.gsDeg * DEG);
+  const gsD = d0 + D.hypot(I.gsN - I.thrN, I.gsE - I.thrE);
+  const alt = I.gsH + gsD * D.tan(I.gsDeg * DEG);
   const f = new Flight(B77W, { n, e, alt, hdg: I.crs, cas: 170, gamma: -I.gsDeg, flap: 4, gear: 1, mass: 230000 }, w, process.env.SEED || 'f4-ils', { ...world, ground: flatGround(groundH, SURF.PAVED) });
   const c: Controls = { ...f.initial, thr: f.initial.thr.slice() };
   c.mcpHdg = I.crs; c.mcpAlt = 3000; c.mcpSpd = 170; c.spoiler = -1; c.autobrake = 3;

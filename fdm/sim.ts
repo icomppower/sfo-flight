@@ -9,6 +9,7 @@ import { atmosphere, casFromTas, tasFromCas, type Air } from './atmosphere.ts';
 import { lerp1, lerp2 } from './table.ts';
 import { Wind, type WindSpec } from './wind.ts';
 import type { AircraftData, GearDef, PistonDef, FanDef } from './aircraft/types.ts';
+import * as D from './dmath.ts';
 
 export const HZ = 120, DT = 1 / HZ;
 
@@ -55,6 +56,7 @@ export interface Start {
   mass?: number; // kg total; default ref mass
   fuel?: number; // kg
   engineOn?: boolean; // piston cold-and-dark when false
+  park?: boolean; // parking brake set at a ground start
   n1?: number; // turbofan spool at start (%)
 }
 
@@ -111,9 +113,9 @@ export class Sim {
       const noseG = ac.gear.find((g) => !g.brake)!;
       const zc = mainZ.reduce((a, b) => a + b, 0) / mainZ.length;
       const xm = ac.gear.filter((g) => g.brake)[0].pos[0];
-      const theta = Math.atan2((noseG.pos[2] - noseG.staticDefl) - zc, noseG.pos[0] - xm); // pitch that puts every wheel on the ground
+      const theta = D.atan2((noseG.pos[2] - noseG.staticDefl) - zc, noseG.pos[0] - xm); // pitch that puts every wheel on the ground
       this.q = qFromEuler(hdg, theta, 0);
-      this.pos = [s.n, s.e, -(h0 + zc * Math.cos(theta) - xm * Math.sin(theta))];
+      this.pos = [s.n, s.e, -(h0 + zc * D.cos(theta) - xm * D.sin(theta))];
       this.vel = [0, 0, 0];
       this.running = s.engineOn !== false;
       this.rpm = this.running && ac.engine.kind === 'piston' ? (ac.engine as PistonDef).idleRpm.v : 0;
@@ -124,7 +126,7 @@ export class Sim {
       const tas = tasFromCas((s.cas ?? 100) * KT, air);
       const gam = (s.gamma ?? 0) * DEG;
       this.pos = [s.n, s.e, -s.alt];
-      this.vel = [tas * Math.cos(gam) * Math.cos(hdg), tas * Math.cos(gam) * Math.sin(hdg), -tas * Math.sin(gam)];
+      this.vel = [tas * D.cos(gam) * D.cos(hdg), tas * D.cos(gam) * D.sin(hdg), -tas * D.sin(gam)];
       this.q = qFromEuler(hdg, gam, 0);
       this.running = true;
       if (ac.engine.kind === 'piston') this.rpm = (ac.engine as PistonDef).rpmMax.v * 0.85;
@@ -138,7 +140,7 @@ export class Sim {
     return { Ix: I.Ix.v * k, Iy: I.Iy.v * k, Iz: I.Iz.v * k, Ixz: I.Ixz.v * k };
   }
   // ground speed, vertical speed (fpm), heading of the velocity
-  get gs(): number { return Math.hypot(this.vel[0], this.vel[1]); }
+  get gs(): number { return D.hypot(this.vel[0], this.vel[1]); }
   get vsFpm(): number { return -this.vel[2] / FT * 60; }
   get altMsl(): number { return -this.pos[2]; }
 
@@ -158,8 +160,8 @@ export class Sim {
     this.uOut = 0;
     if (kU > 0) {
       const relatch = this.onGround || this.agl < 100 * FT || Math.abs(c.elev) > 0.25 || c.trim !== 0 || Math.abs(this.flapDeg - ac.flaps.detents[clamp(Math.round(c.flap), 0, ac.flaps.detents.length - 1)]) > 0.01 || c.ap > 0 || this.vRef === 0;
-      const Vg = Math.hypot(this.vel[0], this.vel[1], this.vel[2]);
-      const gam = Vg > 1 ? Math.asin(clamp(-this.vel[2] / Vg, -1, 1)) : 0;
+      const Vg = D.hypot(this.vel[0], this.vel[1], this.vel[2]);
+      const gam = Vg > 1 ? D.asin(clamp(-this.vel[2] / Vg, -1, 1)) : 0;
       if (relatch) { this.vRef = this.cas; this.gRef = gam; }
       else { this.uOut = clamp(-kU * (this.cas - this.vRef) * KT + (ac.fcs.pathStab ?? 0) * (gam - this.gRef), -0.08, 0.08); eCmd += this.uOut; }
     }
@@ -168,7 +170,7 @@ export class Sim {
     // yaw damper (heavy): washed-out yaw rate to rudder, airborne only
     let yd = 0;
     if (ac.fcs.yawDamper > 0) {
-      const a = Math.exp(-DT / ac.fcs.yawDamperTau);
+      const a = D.exp(-DT / ac.fcs.yawDamperTau);
       this.ydWash = a * this.ydWash + (1 - a) * this.w[2];
       const rw = this.w[2] - this.ydWash;
       yd = this.onGround ? 0 : clamp(-ac.fcs.yawDamper * rw, -0.15, 0.15);
@@ -212,22 +214,22 @@ export class Sim {
     const ac = this.ac, F: V3 = [0, 0, 0], M: V3 = [0, 0, 0];
     this.thrust = 0; this.fuelFlow = 0;
     if (ac.engine.kind === 'piston') {
-      const E = ac.engine as PistonDef, D = E.propD.v;
+      const E = ac.engine as PistonDef, Dp = E.propD.v, D4 = Dp * Dp * Dp * Dp, D5 = D4 * Dp;
       const wEng = Math.max(this.rpm, 0) * Math.PI / 30;
       // start / stop
       const fuelOk = this.fuel > 0 && c.mixture > 0.25;
       if (this.running && (!fuelOk || c.mags < 0.5)) this.running = false;
       if (!this.running && c.starter > 0.5 && c.master > 0.5) { this.starterT += DT; if (this.starterT > 1.2 && this.rpm > 150 && fuelOk && c.mags > 0.5) this.running = true; } else this.starterT = 0;
       const n = Math.max(this.rpm, 1) / 60;
-      const J = clamp(Math.max(ub, 0) / (n * D), 0, 2);
+      const J = clamp(Math.max(ub, 0) / (n * Dp), 0, 2);
       const cp = lerp1(E.cp, J), ct = lerp1(E.ct, J);
       const rho = air.rho;
-      const Pprop = cp * rho * n * n * n * D ** 5;
-      let T = ct * rho * n * n * D ** 4;
+      const Pprop = cp * rho * n * n * n * D5;
+      let T = ct * rho * n * n * D4;
       const dens = clamp((air.sigma - 0.117) / 0.883, 0, 1.2); // Gagg–Ferrar
       const thrF = 0.06 + 0.94 * clamp(c.thr[0], 0, 1);
       const Peng = this.running ? E.powerW.v * dens * (this.rpm / E.rpmMax.v) * thrF * (c.mixture > 0.25 ? 1 : 0) : 0;
-      const Pfric = E.powerW.v * 0.035 * (this.rpm / E.rpmMax.v) ** 2 + (this.rpm > 1 ? 150 : 0);
+      const Pfric = E.powerW.v * 0.035 * D.pow(this.rpm / E.rpmMax.v, 2) + (this.rpm > 1 ? 150 : 0);
       const Pstart = !this.running && c.starter > 0.5 && c.master > 0.5 ? 2500 : 0;
       const wMin = 20;
       const Q = (Peng + Pstart - Pprop - Pfric) / Math.max(wEng, wMin);
@@ -245,14 +247,14 @@ export class Sim {
       const E = ac.engine as FanDef;
       const idle = E.n1Idle.v, mx = E.n1Max.v;
       const Mach = this.mach;
-      const lapse = Math.pow(air.sigma, E.densExp.v) * (1 + E.lapseM.v * Mach + E.lapseM2.v * Mach * Mach);
+      const lapse = D.pow(air.sigma, E.densExp.v) * (1 + E.lapseM.v * Mach + E.lapseM2.v * Mach * Mach);
       for (let i = 0; i < E.count; i++) {
         const cmd = this.fuel > 0 ? idle + (mx - idle) * clamp(c.thr[i] ?? 0, 0, 1) : 10;
         const u = clamp((this.n1[i] - idle) / (mx - idle), 0, 1);
         const tau = E.tauIdle.v + (E.tau.v - E.tauIdle.v) * u;
-        this.n1[i] += (cmd - this.n1[i]) * (1 - Math.exp(-DT / tau));
+        this.n1[i] += (cmd - this.n1[i]) * (1 - D.exp(-DT / tau));
         const un = clamp((this.n1[i] - idle) / (mx - idle), 0, 1.05);
-        const frac = this.n1[i] < idle ? E.idleFrac.v * clamp(this.n1[i] / idle, 0, 1) ** 2 : E.idleFrac.v + (1 - E.idleFrac.v) * Math.pow(un, E.thrustExp.v);
+        const frac = this.n1[i] < idle ? E.idleFrac.v * D.pow(clamp(this.n1[i] / idle, 0, 1), 2) : E.idleFrac.v + (1 - E.idleFrac.v) * D.pow(un, E.thrustExp.v);
         let T = E.thrustN.v * frac * lapse;
         if (this.fx.noThrust) T = 0;
         this.thrust += T;
@@ -300,10 +302,10 @@ export class Sim {
       // wheel axes on the surface
       let steer = 0;
       if (G.steerMax) steer = clamp(c.rud, -1, 1) * G.steerMax + (G.tillerMax ? clamp(c.tiller, -1, 1) * G.tillerMax : 0);
-      const fw = rotate(this.q, [Math.cos(steer), Math.sin(steer), 0]);
+      const fw = rotate(this.q, [D.cos(steer), D.sin(steer), 0]);
       const fdn = dot(fw, Nup);
       let f: V3 = [fw[0] - fdn * Nup[0], fw[1] - fdn * Nup[1], fw[2] - fdn * Nup[2]];
-      const fl = Math.hypot(f[0], f[1], f[2]) || 1; f = [f[0] / fl, f[1] / fl, f[2] / fl];
+      const fl = D.hypot(f[0], f[1], f[2]) || 1; f = [f[0] / fl, f[1] / fl, f[2] / fl];
       const right = cross(f, Nup); // forward × up-normal = right
       const va = dot(vp, f), vs = dot(vp, right);
       const surfRoll = surf === SURF.PAVED ? roll : roll * 2.5;
@@ -345,7 +347,7 @@ export class Sim {
         // a scrape: stiff contact and sliding friction, flagged
         this.tailstrike = true;
         const Fn = Math.max(0, this.mass * G0 * 2 * pen / 0.1 + this.mass * 2 * vp[2]);
-        const Fw: V3 = [-vp[0] / (Math.hypot(vp[0], vp[1]) + 0.3) * 0.5 * Fn, -vp[1] / (Math.hypot(vp[0], vp[1]) + 0.3) * 0.5 * Fn, -Fn];
+        const Fw: V3 = [-vp[0] / (D.hypot(vp[0], vp[1]) + 0.3) * 0.5 * Fn, -vp[1] / (D.hypot(vp[0], vp[1]) + 0.3) * 0.5 * Fn, -Fn];
         Fned[0] += Fw[0]; Fned[1] += Fw[1]; Fned[2] += Fw[2];
         const m = cross(C.pos, unrotate(this.q, Fw)); Mb[0] += m[0]; Mb[1] += m[1]; Mb[2] += m[2];
         continue;
@@ -381,8 +383,8 @@ export class Sim {
     const vb = unrotate(this.q, va);
     const V = Math.sqrt(vb[0] * vb[0] + vb[1] * vb[1] + vb[2] * vb[2]);
     this.tas = V; this.mach = V / air.a; this.cas = casFromTas(V, air) / KT;
-    const alpha = V > 0.5 ? Math.atan2(vb[2], vb[0]) : 0;
-    const beta = V > 0.5 ? Math.asin(clamp(vb[1] / V, -1, 1)) : 0;
+    const alpha = V > 0.5 ? D.atan2(vb[2], vb[0]) : 0;
+    const beta = V > 0.5 ? D.asin(clamp(vb[1] / V, -1, 1)) : 0;
     if (!init) { const raw = (alpha - this._prevAlpha) / DT; this.alphaDot += (clamp(raw, -2, 2) - this.alphaDot) * 0.25; }
     this._prevAlpha = alpha;
     this.alpha = alpha; this.beta = beta;
@@ -394,7 +396,7 @@ export class Sim {
     const aDeg = alpha / DEG;
     // ground effect: wing height above the surface (≈ gear-ground height of the CG)
     const hw = Math.max(0.1, h - Math.max(this.groundH, 0) - 0.4 * ac.model.gearGround);
-    const x16 = (16 * hw / b) ** 2, phi = x16 / (1 + x16);
+    const x16 = D.pow(16 * hw / b, 2), phi = x16 / (1 + x16);
     const sp = this.spoilerPos;
     let CL = lerp2(A.CL, aDeg, this.flapDeg) * (1 + A.geLift.v * (1 - phi)) + A.CLq.v * qh + A.CLadot.v * this.alphaDot * cb / (2 * Vn) + A.CLde.v * this.de + A.CLtrim.v * this.trimPos;
     if (A.spoiler) CL += A.spoiler.CL.v * sp;
@@ -415,7 +417,7 @@ export class Sim {
     if (V > 0.5) {
       const L = qbar * S * CL, Dg = qbar * S * CD, Y = qbar * S * CY;
       const ex = vb[0] / V, ey = vb[1] / V, ez = vb[2] / V;
-      Fb[0] += -Dg * ex + L * Math.sin(alpha); Fb[1] += -Dg * ey + Y; Fb[2] += -Dg * ez - L * Math.cos(alpha);
+      Fb[0] += -Dg * ex + L * D.sin(alpha); Fb[1] += -Dg * ey + Y; Fb[2] += -Dg * ez - L * D.cos(alpha);
     }
     const Mb: V3 = this.fx.noAeroMoments ? [0, 0, 0] : [qbar * S * b * Cl, qbar * S * cb * Cm, qbar * S * b * Cn];
     const E = this.engines(c, air, vb[0]);
@@ -450,7 +452,7 @@ export class Sim {
     this.vel = [v0[0] + Fn[0] / m * DT, v0[1] + Fn[1] / m * DT, v0[2] + Fn[2] / m * DT];
     this.pos = [this.pos[0] + (v0[0] + this.vel[0]) * 0.5 * DT, this.pos[1] + (v0[1] + this.vel[1]) * 0.5 * DT, this.pos[2] + (v0[2] + this.vel[2]) * 0.5 * DT];
     // along-track deceleration for the autobrake
-    const gs0 = Math.hypot(v0[0], v0[1]), gs1 = Math.hypot(this.vel[0], this.vel[1]);
+    const gs0 = D.hypot(v0[0], v0[1]), gs1 = D.hypot(this.vel[0], this.vel[1]);
     this.abDecel = (gs0 - gs1) / DT;
     // rotation: Euler's equations with the xz product of inertia
     const I = this.inertia, w = this.w;

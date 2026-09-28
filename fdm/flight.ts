@@ -24,7 +24,7 @@ export class Flight {
       this.sim.adopt(t.sim);
       this.initial.thr = t.c.thr.slice();
     } else if (start.engineOn === false) { this.initial.mixture = 0; this.initial.mags = 0; this.initial.master = 0; }
-    else { this.initial.park = 1; }
+    if (start.alt == null && start.park) this.initial.park = 1;
     this.ap = ac.engine.kind === 'turbofan' ? new Autopilot(world.ils) : null;
     this.scorer = new Scorer(world.runways);
     this.rec = new Recorder(ac, start, weather, seed, this.initial);

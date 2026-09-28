@@ -1,0 +1,59 @@
+/* SFO Flight: the game's own HUD, panel, menus and phone controls (the engine's panel rail stays on the right edge) */
+.sf-root { position: fixed; inset: 0; pointer-events: none; z-index: 40; font: 500 13px/1.3 'Inter', system-ui, sans-serif; color: #eef6ff; }
+.sf-root.is-hidden > :not(.sf-overlay) { display: none !important; }
+.sf-top { position: absolute; top: 12px; left: 16px; right: 72px; display: flex; justify-content: space-between; align-items: flex-start; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+.sf-id b { display: block; font: 700 18px/1.1 'JetBrains Mono', ui-monospace, monospace; }
+.sf-id span { font: 500 11px/1.4 'JetBrains Mono', ui-monospace, monospace; opacity: .85; }
+.sf-cam { text-align: right; }
+.sf-cam em { display: block; font-style: normal; font-weight: 700; font-size: 15px; }
+.sf-cam i { font-style: normal; font: 500 11px/1.4 'JetBrains Mono', ui-monospace, monospace; opacity: .8; }
+.sf-msg { position: absolute; top: 22%; left: 50%; transform: translateX(-50%); font: 800 26px/1 'Inter', system-ui, sans-serif; letter-spacing: .08em; text-shadow: 0 2px 6px rgba(0,0,0,.8); }
+.sf-msg.warn { color: #ff4b3e; } .sf-msg.info { color: #ffcf5a; font-size: 18px; }
+.sf-panel { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 34vh; }
+.sf-root.view-out .sf-panel { height: 64px; bottom: 34px; left: 16px; width: min(640px, calc(100vw - 100px)); border-radius: 10px; }
+.sf-help { position: absolute; left: 16px; bottom: 8px; font-size: 11px; opacity: .6; max-width: calc(100vw - 100px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sf-root.view-cockpit .sf-help { display: none; }
+.sf-mcp { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: center; max-width: min(980px, 94vw); padding: 8px 10px; border-radius: 10px; background: rgba(12, 16, 22, .82); pointer-events: auto; font: 600 12px/1 'JetBrains Mono', ui-monospace, monospace; }
+.sf-mcp[hidden], .sf-eng[hidden] { display: none; }
+.mcp-row, .mcp-knob { display: flex; gap: 4px; align-items: center; }
+.mcp-knob small { opacity: .7; margin-right: 2px; } .mcp-knob b { min-width: 48px; text-align: center; color: #ffb000; }
+.sf-mcp button, .sf-eng button { min-width: 36px; height: 32px; border: 1px solid rgba(255,255,255,.3); border-radius: 6px; background: #1d232c; color: #dfe8f1; font: 600 12px/1 'JetBrains Mono', ui-monospace, monospace; cursor: pointer; }
+.sf-mcp button.on, .sf-eng button.on { background: #1f5e2f; border-color: #3ad06a; color: #fff; }
+.sf-eng { position: absolute; top: 56px; left: 16px; display: flex; gap: 6px; align-items: center; padding: 8px 10px; border-radius: 10px; background: rgba(12, 16, 22, .82); pointer-events: auto; }
+.sf-touch { display: none; }
+html.is-touch .sf-touch { display: block; }
+.sf-stick { position: absolute; left: 16px; bottom: 24px; width: 140px; height: 140px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); background: rgba(8,14,22,.35); pointer-events: auto; touch-action: none; }
+.sf-stick i { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255,255,255,.55); }
+.sf-thr { position: absolute; right: 16px; bottom: 24px; width: 48px; height: 190px; pointer-events: auto; touch-action: none; }
+.sf-thr input { writing-mode: vertical-lr; direction: rtl; width: 48px; height: 190px; margin: 0; accent-color: #ffcf5a; }
+.sf-btns { position: absolute; left: 12px; top: 128px; width: 252px; display: flex; flex-wrap: wrap; gap: 8px; pointer-events: auto; }
+.sf-btns button { min-width: 54px; height: 40px; border: 1px solid rgba(255,255,255,.35); border-radius: 8px; background: rgba(8,14,22,.6); color: #eef6ff; font: 700 13px/1 'Inter', system-ui, sans-serif; touch-action: none; }
+html.is-touch .sf-help { display: none; }
+html.is-touch .sf-root .sf-panel, html.is-touch .sf-root.view-out .sf-panel { top: 58px; bottom: auto; left: 8px; width: calc(100vw - 72px); height: 56px; border-radius: 8px; }
+html.is-touch .sf-mcp { top: 232px; left: 12px; transform: none; justify-content: flex-start; max-width: calc(100vw - 88px); }
+html.is-touch .sf-eng { top: 232px; left: 12px; flex-wrap: wrap; max-width: calc(100vw - 88px); }
+html.is-touch .sf-top { right: 64px; } html.is-touch .sf-id b { font-size: 14px; } html.is-touch .sf-id span { display: none; }
+html.is-touch .tc-pad, html.is-touch .tc-stick { display: none !important; }
+.tw-prompt, .tw-toasts, .tw-tl, .tw-brand { display: none !important; }
+.sf-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(4, 8, 14, .55); pointer-events: auto; z-index: 60; }
+.sf-overlay[hidden] { display: none; }
+.sf-card { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; box-sizing: border-box; padding: 20px 22px; border-radius: 14px; background: rgba(14, 20, 28, .94); border: 1px solid rgba(255,255,255,.12); }
+.sf-card h1 { margin: 0; font: 800 28px/1.1 'Inter', system-ui, sans-serif; letter-spacing: .04em; color: #ffcf5a; }
+.sf-card h2 { margin: 0 0 8px; font: 700 22px/1.2 'Inter', system-ui, sans-serif; }
+.sf-tag { margin: 6px 0 14px; opacity: .85; }
+.sf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.sf-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; opacity: .95; min-width: 0; }
+.sf-grid label[hidden] { display: none; }
+.sf-grid select, .sf-grid input { height: 36px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: #1a212b; color: #eef6ff; font: 500 14px/1 'Inter', system-ui, sans-serif; padding: 0 8px; min-width: 0; width: 100%; box-sizing: border-box; }
+.sf-metar { font: 500 12px/1.4 'JetBrains Mono', ui-monospace, monospace; opacity: .8; min-height: 1.4em; word-break: break-word; }
+.sf-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.sf-actions button { height: 42px; padding: 0 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,.25); background: #1d2530; color: #eef6ff; font: 700 14px/1 'Inter', system-ui, sans-serif; cursor: pointer; }
+.sf-actions button.primary { background: #ffcf5a; color: #1a1406; border-color: #ffcf5a; }
+.sf-keys { font-size: 11px; opacity: .6; margin: 12px 0 0; }
+.sf-score { display: flex; gap: 18px; align-items: center; margin: 6px 0 10px; }
+.sf-grade { font: 800 64px/1 'Inter', system-ui, sans-serif; color: #ffcf5a; }
+.sf-score b { display: block; font: 800 34px/1 'JetBrains Mono', ui-monospace, monospace; } .sf-score small { opacity: .7; }
+.sf-card table { width: 100%; border-collapse: collapse; font: 500 13px/1.6 'JetBrains Mono', ui-monospace, monospace; }
+.sf-card td { padding: 2px 6px; border-bottom: 1px solid rgba(255,255,255,.08); } .sf-card td:last-child { text-align: right; opacity: .8; }
+.sf-crash { color: #ff6b5e; font-weight: 700; font-size: 16px; }
+@media (max-width: 640px) { .sf-grid { grid-template-columns: 1fr; } .sf-card h1 { font-size: 22px; } .sf-msg { font-size: 20px; } }

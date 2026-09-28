@@ -32,7 +32,7 @@ export class TestPilot {
   fly(c: Controls, T: Target): Controls {
     const s = this.sim, g = this.g, e = s.euler;
     const V = Math.max(s.tas, 10);
-    const gamma = Math.asin(clamp(-s.vel[2] / Math.max(Math.hypot(s.vel[0], s.vel[1], s.vel[2]), 1), -1, 1));
+    const gamma = D.asin(clamp(-s.vel[2] / Math.max(D.hypot(s.vel[0], s.vel[1], s.vel[2]), 1), -1, 1));
     // ---- vertical: γ command → pitch command → elevator
     let thCmd: number;
     if (T.pitch != null) thCmd = T.pitch;
@@ -70,8 +70,8 @@ export class TestPilot {
     else if (T.track) {
       const crs = T.track.crs * DEG;
       const dn = s.pos[0] - T.track.n, de = s.pos[1] - T.track.e;
-      const xte = -Math.sin(crs) * dn + Math.cos(crs) * de; // + right of the line
-      const trk = Math.atan2(s.vel[1], s.vel[0]);
+      const xte = -D.sin(crs) * dn + D.cos(crs) * de; // + right of the line
+      const trk = D.atan2(s.vel[1], s.vel[0]);
       const intercept = clamp(-xte * 0.004, -0.5, 0.5);
       const hdgErr = wrap180((crs + intercept - trk) / DEG) * DEG;
       phCmd = clamp(hdgErr * g.hdgK * 1.5, -g.maxBank * DEG, g.maxBank * DEG);
@@ -88,6 +88,7 @@ export class TestPilot {
 // Trim by flying: settle the aircraft at (alt, cas, γ, flap, gear) in calm air and return the state to start from.
 import { Sim as SimClass, neutralControls, CALM, flatGround } from './sim.ts';
 import type { AircraftData } from './aircraft/types.ts';
+import * as D from './dmath.ts';
 export interface Trimmed { sim: Sim; c: Controls }
 export function trimFly(ac: AircraftData, o: { alt: number; cas: number; gamma?: number; flap?: number; gear?: number; mass?: number; hdg?: number; seconds?: number }): Trimmed {
   const sim = new SimClass(ac, { start: { n: 0, e: 0, alt: o.alt, hdg: o.hdg ?? 0, cas: o.cas, gamma: o.gamma ?? 0, flap: o.flap ?? 0, gear: o.gear ?? (ac.gearRetract ? 0 : 1), mass: o.mass }, weather: CALM, seed: 'trim', ground: flatGround(-3000) });

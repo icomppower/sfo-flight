@@ -1,5 +1,6 @@
 // Small vector / quaternion kit for the flight model. Plain number arrays, no allocation in the hot path beyond
 // what callers pass in. Frames: NED world (north, east, down), body (x forward, y right, z down).
+import * as D from './dmath.ts';
 export type V3 = [number, number, number];
 export type Q4 = [number, number, number, number]; // w, x, y, z — rotates body → NED
 
@@ -37,21 +38,21 @@ export function qnorm(q: Q4): Q4 { const n = Math.sqrt(q[0] * q[0] + q[1] * q[1]
 
 // Euler (heading ψ, pitch θ, bank φ; aerospace 3-2-1) ↔ quaternion
 export function qFromEuler(psi: number, theta: number, phi: number): Q4 {
-  const cy = Math.cos(psi / 2), sy = Math.sin(psi / 2), cp = Math.cos(theta / 2), sp = Math.sin(theta / 2), cr = Math.cos(phi / 2), sr = Math.sin(phi / 2);
+  const cy = D.cos(psi / 2), sy = D.sin(psi / 2), cp = D.cos(theta / 2), sp = D.sin(theta / 2), cr = D.cos(phi / 2), sr = D.sin(phi / 2);
   return [cr * cp * cy + sr * sp * sy, sr * cp * cy - cr * sp * sy, cr * sp * cy + sr * cp * sy, cr * cp * sy - sr * sp * cy];
 }
 export function eulerFromQ(q: Q4): { psi: number; theta: number; phi: number } {
   const [w, x, y, z] = q;
-  const phi = Math.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y));
-  const theta = Math.asin(clamp(2 * (w * y - z * x), -1, 1));
-  const psi = Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z));
+  const phi = D.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y));
+  const theta = D.asin(clamp(2 * (w * y - z * x), -1, 1));
+  const psi = D.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z));
   return { psi, theta, phi };
 }
 // integrate q by body rates ω over dt (exact rotation of the constant-rate step)
 export function qIntegrate(q: Q4, w: V3, dt: number): Q4 {
   const a = len(w) * dt;
   if (a < 1e-12) return q;
-  const s = Math.sin(a / 2) / (a / dt), c = Math.cos(a / 2);
+  const s = D.sin(a / 2) / (a / dt), c = D.cos(a / 2);
   return qnorm(qmul(q, [c, w[0] * s, w[1] * s, w[2] * s]));
 }
 export const wrap360 = (d: number): number => ((d % 360) + 360) % 360;

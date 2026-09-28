@@ -5,8 +5,9 @@
 // δe > 0 is trailing edge down in both.
 import { S } from '../table.ts';
 import type { AircraftData } from './types.ts';
+import * as D from '../dmath.ts';
 
-const LB = 0.45359237, FT = 0.3048, SLUGFT2 = 1.3558179, D = Math.PI / 180;
+const LB = 0.45359237, FT = 0.3048, SLUGFT2 = 1.3558179, DG = Math.PI / 180;
 const V = 'VERIFIED', A = 'APPROX';
 
 export const C172: AircraftData = {
@@ -33,18 +34,18 @@ export const C172: AircraftData = {
     ref: S(2550 * LB, 'POH', V, 'reference mass for inertia and gear = MTOW'),
   },
   inertia: {
-    Ix: S(1048 * SLUGFT2 * (2550 / 2750) * (11.0 / 10.18) ** 2, 'NAV', A, 'Navion Ix 1,048 slug ft² scaled by mass × span²'),
-    Iy: S(3000 * SLUGFT2 * (2550 / 2750) * (8.28 / 8.33) ** 2, 'NAV', A, 'Navion Iy 3,000 slug ft² scaled by mass × length²'),
+    Ix: S(1048 * SLUGFT2 * (2550 / 2750) * D.pow(11.0 / 10.18, 2), 'NAV', A, 'Navion Ix 1,048 slug ft² scaled by mass × span²'),
+    Iy: S(3000 * SLUGFT2 * (2550 / 2750) * D.pow(8.28 / 8.33, 2), 'NAV', A, 'Navion Iy 3,000 slug ft² scaled by mass × length²'),
     Iz: S(3530 * SLUGFT2 * (2550 / 2750) * 1.08, 'NAV', A, 'Navion Iz 3,530 slug ft² scaled by mass × (span² + length²)/2'),
     Ixz: S(0, 'NAV', V, 'Navion Ixz = 0'),
   },
   flaps: { detents: [0, 10, 20, 30], rate: S(3.5, 'GEN', A, 'electric flaps, about 9 s 0→30°'), vfe: [163, 110, 85, 85] },
   gearRetract: false, gearTransit: 0,
   controls: {
-    deUp: S(28 * D, 'GEN', A, 'FAA TCDS 3A12 travel (elevator 28° up), from memory, not re-read'),
-    deDown: S(23 * D, 'GEN', A, 'FAA TCDS 3A12 travel (elevator 23° down), from memory'),
-    da: S(17.5 * D, 'GEN', A, 'mean of 20° up / 15° down (TCDS 3A12, from memory)'),
-    dr: S(17 * D, 'GEN', A, 'TCDS 3A12 about 17° either side, from memory'),
+    deUp: S(28 * DG, 'GEN', A, 'FAA TCDS 3A12 travel (elevator 28° up), from memory, not re-read'),
+    deDown: S(23 * DG, 'GEN', A, 'FAA TCDS 3A12 travel (elevator 23° down), from memory'),
+    da: S(17.5 * DG, 'GEN', A, 'mean of 20° up / 15° down (TCDS 3A12, from memory)'),
+    dr: S(17 * DG, 'GEN', A, 'TCDS 3A12 about 17° either side, from memory'),
     rate: S(2.0, 'GEN', A, 'rad/s, cable controls: pilot-limited'),
     trimRange: [-0.25, 0.25], trimRate: 0.10, trimIsStab: false,
   },
@@ -107,7 +108,7 @@ export const C172: AircraftData = {
     pos: [1.9, 0, 0.3],
   },
   gear: [
-    { id: 'nose', pos: [1.39, 0, 1.14], kShare: 0.16, staticDefl: 0.10, zeta: 0.6, travel: 0.16, steerMax: 10 * D, brake: null },
+    { id: 'nose', pos: [1.39, 0, 1.14], kShare: 0.16, staticDefl: 0.10, zeta: 0.6, travel: 0.16, steerMax: 10 * DG, brake: null },
     { id: 'left', pos: [-0.262, -1.2, 1.13], kShare: 0.42, staticDefl: 0.09, zeta: 0.6, travel: 0.14, brake: 'L' },
     { id: 'right', pos: [-0.262, 1.2, 1.13], kShare: 0.42, staticDefl: 0.09, zeta: 0.6, travel: 0.14, brake: 'R' },
   ],

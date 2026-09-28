@@ -5,6 +5,7 @@
 import { type Sim, type Controls, DT } from './sim.ts';
 import { ilsDeviation, type IlsDef, type IlsDev } from './ils.ts';
 import { clamp, DEG, KT, FT, wrap180 } from './math.ts';
+import * as D from './dmath.ts';
 
 export const AP_EVENT = { AP: 1, AT: 2, HDG: 3, ALT: 4, VS: 5, LOC: 6, APP: 7, OFF: 8 } as const;
 export type Lat = 'ROLL' | 'HDG' | 'LOC' | 'ROLLOUT';
@@ -58,7 +59,7 @@ export class Autopilot {
       else {
         // gust-tolerant speed: airspeed complemented with the inertial along-track acceleration (τ 4 s), so the
         // thrust answers the energy trend, not every gust
-        const acc = (s.forceB[0] / s.mass - 9.80665 * Math.sin(e.theta)) / KT; // kt/s, inertial along the body
+        const acc = (s.forceB[0] / s.mass - 9.80665 * D.sin(e.theta)) / KT; // kt/s, inertial along the body
         if (this.spdF === 0) this.spdF = s.cas;
         this.spdF += acc * DT + (s.cas - this.spdF) * DT / 4;
         const err = c.mcpSpd - this.spdF;
@@ -78,12 +79,12 @@ export class Autopilot {
     if (this.vert === 'FLARE' && radAlt < 25 * FT) this.retard = true;
     if (s.onGround && (this.vert === 'FLARE' || this.lat === 'LOC')) { this.lat = 'ROLLOUT'; }
     // ---- lateral
-    const trk = Math.atan2(s.vel[1], s.vel[0]);
+    const trk = D.atan2(s.vel[1], s.vel[0]);
     let phCmd = 0;
     if (this.lat === 'HDG') phCmd = clamp(wrap180(c.mcpHdg - e.psi / DEG) * DEG * 1.0, -25 * DEG, 25 * DEG);
     else if (this.lat === 'LOC' && d && this.ilsSel) {
       // track the centreline: intercept angle from the cross-track, flown as a ground track (wind-corrected)
-      const xteRate = -Math.sin(this.ilsSel.crs * DEG) * s.vel[0] + Math.cos(this.ilsSel.crs * DEG) * s.vel[1];
+      const xteRate = -D.sin(this.ilsSel.crs * DEG) * s.vel[0] + D.cos(this.ilsSel.crs * DEG) * s.vel[1];
       const want = this.ilsSel.crs * DEG + clamp(-d.xte * 0.0035 - xteRate * 0.02, -0.5, 0.5);
       phCmd = clamp(wrap180((want - trk) / DEG) * DEG * 1.6, -25 * DEG, 25 * DEG);
       if (radAlt < 300 * FT) phCmd = clamp(phCmd, -8 * DEG, 8 * DEG);
@@ -101,8 +102,8 @@ export class Autopilot {
     if (this.lat !== 'ROLL') c.ail = clamp(2.2 * (phCmd - e.phi) - 1.2 * s.w[0], -1, 1);
     else c.ail = clamp(2.2 * (0 - e.phi) - 1.2 * s.w[0], -1, 1);
     // ---- vertical: flight-path command → pitch command → elevator, stabilizer trim offloads the elevator
-    const Vg = Math.hypot(s.vel[0], s.vel[1], s.vel[2]);
-    const gamma = Math.asin(clamp(-s.vel[2] / Math.max(Vg, 1), -1, 1));
+    const Vg = D.hypot(s.vel[0], s.vel[1], s.vel[2]);
+    const gamma = D.asin(clamp(-s.vel[2] / Math.max(Vg, 1), -1, 1));
     let gCmd = gamma, pitchDirect: number | null = null;
     if (this.vert === 'VS') gCmd = clamp(c.mcpVs * FT / 60 / V, -0.15, 0.15);
     else if (this.vert === 'ALT' || this.vert === 'ALT*') gCmd = clamp((c.mcpAlt * FT - s.altMsl) * 0.004 * (70 / V) - 0 * gamma, -0.1, 0.1);
@@ -110,14 +111,14 @@ export class Autopilot {
       // glide path over the ground (wind-corrected), a height-error term whose gain grows as the beam narrows, and
       // a rate term (the flight-path error) for damping
       const I = this.ilsSel;
-      const dist = Math.max(300, -d.along + Math.hypot(I.gsN - I.thrN, I.gsE - I.thrE));
+      const dist = Math.max(300, -d.along + D.hypot(I.gsN - I.thrN, I.gsE - I.thrE));
       const k = 0.003 * Math.min(this.gsKmax, Math.max(1, 3000 / dist));
-      const gsGround = -Math.atan(Math.tan(I.gsDeg * DEG) * Math.hypot(s.vel[0], s.vel[1]) / Math.max(Vg, 1));
+      const gsGround = -D.atan(D.tan(I.gsDeg * DEG) * D.hypot(s.vel[0], s.vel[1]) / Math.max(Vg, 1));
       gCmd = gsGround + clamp(-d.gsErrM * k, -0.04, 0.04);
     } else if (this.vert === 'FLARE') {
       // exponential flare: sink proportional to height, flown through the same load-factor loop
       const vsCmd = -Math.max(radAlt / (50 * FT) * this.flareSink, this.flareMin);
-      gCmd = Math.asin(clamp(vsCmd / Math.max(Vg, 1), -0.2, 0.2));
+      gCmd = D.asin(clamp(vsCmd / Math.max(Vg, 1), -0.2, 0.2));
     }
     // flight-path loop through a load-factor inner loop (C*-style): γ error → γ̇ command → nz command → elevator.
     // Commanding nz skips the ~2 s lag between pitch attitude and flight path.
@@ -128,7 +129,7 @@ export class Autopilot {
       c.elev = clamp(2.6 * s.w[1], -1, 1);
     } else {
       const gdot = clamp((gCmd - gamma) * (this.vert === 'FLARE' ? this.kFlareGam : this.kGam), -0.05, 0.05);
-      const nzCmd = Math.cos(gamma) / Math.max(0.5, Math.cos(e.phi)) + V * gdot / 9.80665;
+      const nzCmd = D.cos(gamma) / Math.max(0.5, D.cos(e.phi)) + V * gdot / 9.80665;
       const en = nzCmd - this.nzF;
       const sch = clamp(3600 / Math.max(s.qbar, 800), 0.25, 3); // elevator power grows with dynamic pressure
       this.nzI = clamp(this.nzI + en * this.kNzI * sch * DT, -0.6, 0.6);

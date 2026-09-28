@@ -1,0 +1,25 @@
+{
+  "name": "sfo-flight",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5191",
+    "build": "vite build",
+    "preview": "vite preview",
+    "verify": "./verify.sh",
+    "engine:update": "node node_modules/harbor-engine/bin/harbor-engine.mjs update",
+    "fetch-data": "node pipelines/data/fetch.mjs",
+    "bake": "node node_modules/harbor-engine/tools/terrain/build.mjs && node node_modules/harbor-engine/tools/buildings/build.mjs && node node_modules/harbor-engine/tools/landmarks/build.mjs && node pipelines/aircraft/build.mjs && node pipelines/airport/build.mjs && node pipelines/ring/build.mjs && node pipelines/collision/build.mjs"
+  },
+  "dependencies": {
+    "harbor-engine": "github:icomppower/harbor-engine#v1.1.0",
+    "sfo-tower": "github:icomppower/sfo-tower#6141fa032b3ee33fb1a7fb03963ae100a1e8847a"
+  },
+  "devDependencies": {
+    "vite": "^8.3.0",
+    "puppeteer-core": "^25.12.0"
+  },
+  "description": "SFO Flight \u2014 a Harbor Engine title: fly a C172-class light single or a 777-class heavy twin from SFO over the real bay (USGS / NOAA / NAIP / OpenStreetMap / FAA data), on a headless deterministic flight model (fdm/)."
+}

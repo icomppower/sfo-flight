@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+	<title>SFO Flight</title>
+	<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f2a3d'/%3E%3Cpath d='M4 20l10-3 4-11 3 1-2 9 9-2 1 3-9 4 2 7-3 1-4-6-8 3z' stroke='%23ffcf5a' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E" />
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+	<style>
+		html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+		#app, #app canvas { display: block; }
+		.loader-modes { display: flex; gap: 10px; margin: 8px 0 12px; flex-wrap: wrap; }
+		.loader-modes a { color: #ffcf5a; text-decoration: none; border: 1px solid rgba(255,207,90,.5); border-radius: 8px; padding: 6px 12px; font: 600 13px/1.3 Inter, system-ui, sans-serif; }
+			</style>
+</head>
+<body>
+	<div id="app"></div>
+	<div id="fps" hidden>-- fps</div>
+		<div id="loader" role="status" aria-live="polite" aria-label="Loading SFO Flight">
+		<div class="loader-scrim"></div>
+		<div class="loader-inner">
+			<div class="loader-brand">
+				<p class="loader-kicker">San Francisco Bay, built from real data</p>
+				<h1 class="loader-title">SFO FLIGHT</h1>
+				<p class="loader-tagline">Fly a Cessna 172 or a Boeing 777 from San Francisco International over the real bay: USGS terrain, NOAA seabed, NAIP imagery, OpenStreetMap buildings and FAA runway data, on a flight model built from published aircraft data. · 駕駛塞斯納 172 或波音 777 飛越真實灣區。</p>
+			</div>
+			<div class="loader-panel">
+				<div class="loader-row">
+					<span class="loader-status">Starting…</span>
+					<span class="loader-meta"><span class="loader-pct">0%</span><span class="loader-time">0:00</span></span>
+				</div>
+				<div class="loader-bar"><div class="loader-fill"></div><div class="loader-glint"></div></div>
+				
+				<div class="loader-note">The first launch compiles the shaders and can take a minute or two. Later visits load much faster.</div>
+				<div class="loader-tips">
+					<span class="loader-tip-label">Tip</span>
+					<div class="loader-tip-list">
+							<p class="loader-tip">Arrows or W S A D fly, Q E rudder, PgUp PgDn throttle, F flaps, G gear, B brakes, C camera, Esc menu. A gamepad or joystick works too (remap in the menu); on a phone use the stick and the throttle slider.</p>
+							<p class="loader-tip">The 777 has an autopilot (Shift+A): speed, heading, altitude and vertical speed, and APP flies the ILS to 28L or 28R down to the flare and rollout.</p>
+							<p class="loader-tip">Every landing is scored on touchdown rate, centreline and touchdown zone; R replays the flight with the director's cameras.</p>
+						</div>
+					</div>
+			</div>
+		</div>
+	</div>
+	<script type="module" src="/src/main.js"></script>
+</body>
+</html>

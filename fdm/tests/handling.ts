@@ -7,6 +7,7 @@ import { rotate, unrotate, qFromEuler, eulerFromQ, clamp, DEG, KT, type V3 } fro
 import { eig, type C } from './eig.ts';
 import { Rng } from '../rng.ts';
 import type { AircraftData } from '../aircraft/types.ts';
+import * as D from '../dmath.ts';
 
 interface Mode { name: string; re: number; im: number; wn: number; zeta: number; tDouble?: number; tau?: number }
 
@@ -18,7 +19,7 @@ function evalLong(base: Sim, c: Controls, x: number[], lat: number[]): number[] 
     s.q = qFromEuler(e0.psi, th, ph);
     s.vel = rotate(s.q, [u, v, w]);
     s.w = [p, q, r];
-    const a = Math.atan2(w, u);
+    const a = D.atan2(w, u);
     s.alphaDot = adot; s.setPrevAlpha(a - adot * DT);
     const vb0: V3 = [u, v, w], eu0 = { theta: th, phi: ph, psi: e0.psi }, w0: V3 = [p, q, r];
     s.step(c);
@@ -51,12 +52,12 @@ export function linearize(base: Sim, c: Controls): { long: number[][]; lat: numb
 
 const modeOf = (name: string, a: C, b?: C): Mode => {
   if (b && a[1] === 0 && b[1] === 0) { const wn = Math.sqrt(Math.abs(a[0] * b[0])); return { name, re: (a[0] + b[0]) / 2, im: 0, wn, zeta: -(a[0] + b[0]) / (2 * wn) }; }
-  const wn = Math.hypot(a[0], a[1]); return { name, re: a[0], im: Math.abs(a[1]), wn, zeta: -a[0] / wn };
+  const wn = D.hypot(a[0], a[1]); return { name, re: a[0], im: Math.abs(a[1]), wn, zeta: -a[0] / wn };
 };
 
 export function modes(base: Sim, c: Controls): { long: Mode[]; lat: Mode[]; A: { long: number[][]; lat: number[][] } } {
   const A = linearize(base, c);
-  const lr = eig(A.long).sort((p, q) => Math.hypot(q[0], q[1]) - Math.hypot(p[0], p[1]));
+  const lr = eig(A.long).sort((p, q) => D.hypot(q[0], q[1]) - D.hypot(p[0], p[1]));
   const long = [modeOf('short period', lr[0], lr[1]), modeOf('phugoid', lr[2], lr[3])];
   const la = eig(A.lat);
   const cx = la.filter((r) => r[1] !== 0), re = la.filter((r) => r[1] === 0).sort((p, q) => Math.abs(q[0]) - Math.abs(p[0]));
@@ -64,7 +65,7 @@ export function modes(base: Sim, c: Controls): { long: Mode[]; lat: Mode[]; A: {
   if (cx.length >= 2) lat.push(modeOf('dutch roll', cx[0]));
   else if (re.length >= 4) { lat.push(modeOf('dutch roll', re[1], re[2])); re.splice(1, 2); }
   if (re.length) { const r = re[0]; lat.push({ name: 'roll', re: r[0], im: 0, wn: Math.abs(r[0]), zeta: 1, tau: -1 / r[0] }); }
-  if (re.length > 1) { const r = re[re.length - 1]; lat.push({ name: 'spiral', re: r[0], im: 0, wn: Math.abs(r[0]), zeta: 1, tDouble: r[0] > 0 ? Math.log(2) / r[0] : Infinity }); }
+  if (re.length > 1) { const r = re[re.length - 1]; lat.push({ name: 'spiral', re: r[0], im: 0, wn: Math.abs(r[0]), zeta: 1, tDouble: r[0] > 0 ? D.log(2) / r[0] : Infinity }); }
   return { long, lat, A };
 }
 

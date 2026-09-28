@@ -5,6 +5,7 @@ import { TestPilot, trimFly } from '../pilot.ts';
 import { lerp2 } from '../table.ts';
 import { DEG, KT, FT, clamp } from '../math.ts';
 import type { AircraftData } from '../aircraft/types.ts';
+import * as D from '../dmath.ts';
 
 const peakAlpha = (ac: AircraftData, flap: number) => { let b = -1, ab = 0; for (let a = 0; a <= 30; a += 0.05) { const v = lerp2(ac.aero.CL, a, flap); if (v > b) { b = v; ab = a; } } return ab; };
 
@@ -84,7 +85,7 @@ export function landing(ac: AircraftData, o: { flapIdx: number; mass: number; va
   const startH = 500 * FT;
   const { sim } = trimFly(ac, { alt: startH + gearH, cas: o.vapp, gamma: -3, flap: o.flapIdx, gear: 1, mass: o.mass, seconds: 150 });
   // place it on the glidepath toward a threshold at n = 0 (aiming 300 m past it), runway along +n
-  const aim = 300, dx = startH / Math.tan(3 * DEG);
+  const aim = 300, dx = startH / D.tan(3 * DEG);
   sim.pos = [aim - dx, 0, -(startH + gearH)];
   sim.ground = flatGround(0);
   const c = neutralControls(ac); c.flap = o.flapIdx; c.gear = 1; c.spoiler = o.spoilers ? -1 : 0;
@@ -98,7 +99,7 @@ export function landing(ac: AircraftData, o: { flapIdx: number; mass: number; va
       if (h > o.flareFt * FT) {
         // glidepath: γ toward the aim point
         const dist = aim - sim.pos[0];
-        const gpH = dist * Math.tan(3 * DEG);
+        const gpH = dist * D.tan(3 * DEG);
         p.fly(c, { gamma: -3 * DEG + (h > 100 * FT ? clamp((gpH - h) * 0.01, -0.03, 0.03) : 0), cas: o.vapp, track: { n: 0, e: 0, crs: 0 } });
         thetaFlare = e.theta;
       } else {

@@ -1,0 +1,28 @@
+{
+ "format": "sfo-flight-collision/1",
+ "paved": {
+  "file": "paved.bin",
+  "cell": 3,
+  "res": 2700,
+  "originX": -6930.34,
+  "originZ": -4755.46,
+  "areas": 19,
+  "lines": 253,
+  "pavedCells": 269254,
+  "sha256": "f49c254d5bb82b8160174d42fb619336506f5c18dacc0403320a0a1d12e3d13d"
+ },
+ "roofs": {
+  "file": "roofs.bin",
+  "cell": 6,
+  "res": 4000,
+  "origin": -12000,
+  "tiles": 56,
+  "landmarks": [
+   "sfo-tower",
+   "san-mateo-bridge"
+  ],
+  "encoding": "uint16 LE: 0 = open; else (top + 50 m) × 10",
+  "roofCells": 223581,
+  "sha256": "ebd498098f9802b9f6e38f9367664febd8aba6b49da2136bfc9c39c0370ffa54"
+ }
+}

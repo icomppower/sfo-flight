@@ -1,0 +1,253 @@
+{
+ "format": "sfo-flight-aircraft/1",
+ "lodDistances": [
+  900,
+  3500
+ ],
+ "refFov": 60,
+ "blender": "Blender 5.2.1",
+ "frame": "glTF: x starboard, y up, z aft (nose toward -z = heading 0); origin = ground point under the main gear; eye in the same frame",
+ "types": {
+  "b77w": {
+   "name": "Boeing 777-300ER (class)",
+   "lengthM": 73.86,
+   "spanM": 64.8,
+   "eye": [
+    -0.53,
+    7.3,
+    -32.11
+   ],
+   "source": "Boeing D6-58329-2 Fig. 2.2.2",
+   "lods": [
+    {
+     "name": "b77w_lod0.glb",
+     "triangles": 2606,
+     "meshes": 13,
+     "materials": [
+      "beacon",
+      "belly",
+      "blue",
+      "dark",
+      "gear_metal",
+      "gear_tyre",
+      "glass",
+      "nacelle",
+      "nav_green",
+      "nav_red",
+      "nav_white",
+      "white",
+      "wing"
+     ],
+     "min": [
+      -32.400001525878906,
+      0,
+      -37.11000061035156
+     ],
+     "max": [
+      32.400001525878906,
+      20.489999771118164,
+      40.077735900878906
+     ],
+     "sha256": "e36d81b481e850439367aa77f0a85456a91d3bf382954d3c5da4346fa2ab0e62"
+    },
+    {
+     "name": "b77w_lod1.glb",
+     "triangles": 1534,
+     "meshes": 13,
+     "materials": [
+      "beacon",
+      "belly",
+      "blue",
+      "dark",
+      "gear_metal",
+      "gear_tyre",
+      "glass",
+      "nacelle",
+      "nav_green",
+      "nav_red",
+      "nav_white",
+      "white",
+      "wing"
+     ],
+     "min": [
+      -32.400001525878906,
+      0,
+      -37.11000061035156
+     ],
+     "max": [
+      32.400001525878906,
+      20.489999771118164,
+      40.077735900878906
+     ],
+     "sha256": "a652484d32ac74a4d709062dc6ca2ed1eeec8c4885b93194352046ebfc54c863"
+    },
+    {
+     "name": "b77w_lod2.glb",
+     "triangles": 506,
+     "meshes": 9,
+     "materials": [
+      "beacon",
+      "blue",
+      "dark",
+      "nacelle",
+      "nav_green",
+      "nav_red",
+      "nav_white",
+      "white",
+      "wing"
+     ],
+     "min": [
+      -32.400001525878906,
+      3.617363452911377,
+      -37.11000061035156
+     ],
+     "max": [
+      32.400001525878906,
+      20.489999771118164,
+      40.077735900878906
+     ],
+     "sha256": "5ffb68a5afac9cf4b6398d15ea58ec6fee8e7313d571b1e91896aef99d32cfb4"
+    }
+   ],
+   "cockpit": {
+    "name": "b77w_cockpit_lod0.glb",
+    "triangles": 84,
+    "meshes": 2,
+    "materials": [
+     "panel",
+     "trim"
+    ],
+    "min": [
+     -1.399999976158142,
+     6.800000190734863,
+     -33.380001068115234
+    ],
+    "max": [
+     1.399999976158142,
+     7.769999980926514,
+     -31.670000076293945
+    ],
+    "sha256": "f3f42ba788f4178601a8ea636efab630a6d1ef919fdc1cd225874ef499f63695"
+   }
+  },
+  "c172": {
+   "name": "Cessna 172S (class)",
+   "lengthM": 8.28,
+   "spanM": 11,
+   "eye": [
+    -0.3,
+    1.6,
+    -0.41
+   ],
+   "source": "Cessna 172S POH Sec. 1",
+   "lods": [
+    {
+     "name": "c172_lod0.glb",
+     "triangles": 1478,
+     "meshes": 12,
+     "materials": [
+      "beacon",
+      "belly",
+      "blue",
+      "dark",
+      "gear_metal",
+      "gear_tyre",
+      "glass",
+      "nav_green",
+      "nav_red",
+      "nav_white",
+      "white",
+      "wing"
+     ],
+     "min": [
+      -5.5,
+      0,
+      -2.559999942779541
+     ],
+     "max": [
+      5.5,
+      3.50600004196167,
+      6.24560022354126
+     ],
+     "sha256": "91a6a336a01a3793acea25032228dfae5191d914c36a46fc152d76aa8724fe20"
+    },
+    {
+     "name": "c172_lod1.glb",
+     "triangles": 889,
+     "meshes": 12,
+     "materials": [
+      "beacon",
+      "belly",
+      "blue",
+      "dark",
+      "gear_metal",
+      "gear_tyre",
+      "glass",
+      "nav_green",
+      "nav_red",
+      "nav_white",
+      "white",
+      "wing"
+     ],
+     "min": [
+      -5.5,
+      0,
+      -2.559999942779541
+     ],
+     "max": [
+      5.5,
+      3.50600004196167,
+      6.24560022354126
+     ],
+     "sha256": "5a418cc942dfbe8fa8a6e2e278244336110805170f0603e80833861571765d41"
+    },
+    {
+     "name": "c172_lod2.glb",
+     "triangles": 308,
+     "meshes": 8,
+     "materials": [
+      "beacon",
+      "blue",
+      "dark",
+      "nav_green",
+      "nav_red",
+      "nav_white",
+      "white",
+      "wing"
+     ],
+     "min": [
+      -5.5,
+      1.1971946954727173,
+      -2.5
+     ],
+     "max": [
+      5.5,
+      3.50600004196167,
+      6.24560022354126
+     ],
+     "sha256": "db2d75cb13dfafbf6cbd3e1e1ea43e7876237196153adb6436bb18d5fc27ef4d"
+    }
+   ],
+   "cockpit": {
+    "name": "c172_cockpit_lod0.glb",
+    "triangles": 72,
+    "meshes": 2,
+    "materials": [
+     "panel",
+     "trim"
+    ],
+    "min": [
+     -0.6200000047683716,
+     1.284999966621399,
+     -1.2400000095367432
+    ],
+    "max": [
+     0.6200000047683716,
+     2.049999952316284,
+     -0.10999999940395355
+    ],
+    "sha256": "e56dda7f663a27951ab84ef79208f14a45578d704ea426c32e4a6e692496f99c"
+   }
+  }
+ }
+}
