@@ -15,14 +15,15 @@ async function stills(fx = {}) {
   const srv = await serve(), br = await launch();
   try {
     const shot = async (name, query, vp, act) => {
-      const { page, errors } = await openPage(br, srv.url, { query: (fx.broken ? '&game=nosuchgame' : '') + query, viewport: vp || { width: 1600, height: 900 }, touch: !!(vp && vp.width < 600) });
+      let page = null, errors = [];
       try {
+        ({ page, errors } = await openPage(br, srv.url, { query: (fx.broken ? '&game=nosuchgame' : '') + query, viewport: vp || { width: 1600, height: 900 }, touch: !!(vp && vp.width < 600) }));
         await page.waitForFunction(() => window.__sfo && window.__sfo.state === 'flying', { timeout: 30000 });
         if (act) await act(page); else await sleep(5000);
         await page.screenshot({ path: join(out, name + '.png') });
         console.log(`  ${name}.png`);
         const e = errors.filter((x) => !/favicon/.test(x)); if (e.length) fail.push(`${name}: ${e[0]}`);
-      } catch (e) { fail.push(`${name}: ${e.message.split('\n')[0]}`); } finally { await page.close(); }
+      } catch (e) { fail.push(`${name}: ${e.message.split('\n')[0]}`); } finally { if (page) await page.close(); }
     };
     await shot('c172-golden-gate-golden-hour', '&ac=c172&start=ggb&time=golden&cam=chase&wx=calm');
     await shot('b777-cockpit-short-final-28R-night', '&ac=b77w&start=final3&rwy=28R&time=night&cam=cockpit&wx=calm');

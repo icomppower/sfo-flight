@@ -33,7 +33,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const origErr = console.error; console.error = (...a) => { errors.push(a.join(' ')); origErr(...a); };
   for (let k = 0; k < 50 && globalThis.__sfo?.state !== 'flying'; k++) { H.frames(1, 1 / 30); await new Promise((r) => setTimeout(r, 50)); }
   const g = globalThis.__sfo;
-  if (flag('--leak')) for (let i = 0; i < 6; i++) { const b = H.GPU.device.createBuffer({ size: 256 * 2 ** 20, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST }); H.GPU.queue.writeBuffer(b, 0, new Uint8Array(256 * 2 ** 20).fill(1)); }
+  // leak fixture: 1.5 GB of GPU buffers holding incompressible bytes (a constant fill is compressed by macOS and barely
+  // shows in the footprint), kept referenced so the collector does not free them
+  if (flag('--leak')) { let x = 2463534242; const rnd = new Uint32Array(64 * 2 ** 20); for (let i = 0; i < rnd.length; i++) { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; rnd[i] = x >>> 0; } globalThis.__leak = []; for (let i = 0; i < 6; i++) { rnd[0] = i; const b = H.GPU.device.createBuffer({ size: 256 * 2 ** 20, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST }); H.GPU.queue.writeBuffer(b, 0, rnd); globalThis.__leak.push(b); } await H.settle(); }
   if (flag('--heavy')) { const { BufferGeometry, BufferAttribute, Mesh } = await import('harbor-engine/src/engine/index.js'); const { Material } = await import('harbor-engine'); const n = 1500000, P = new Float32Array(n * 9); for (let i = 0; i < P.length; i++) P[i] = (i % 3 === 1 ? 50 : 0) + ((i * 7919) % 1000) * 0.01; const geo = new BufferGeometry(); geo.setAttribute('position', new BufferAttribute(P, 3)); const m = new Mesh(geo, new Material({ name: 'heavy' })); m.frustumCulled = false; app.scene.add(m); }
   const frames = Math.round(minutes * 60 * 30), dt = 1 / 30, half = Math.floor(frames / 2);
   const cams = ['chase', 'cockpit', 'tower', 'chase'];
