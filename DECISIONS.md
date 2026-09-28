@@ -107,3 +107,26 @@ a 25 m shift is measured as 26 m, a 60 m shift fails.
 ## D18 — F6 on the headless App (2026-09-27)
 As in SFO Approach A3, the budget runs in the engine's headless App (Dawn on Metal, the M4), where frame time is CPU +
 GPU serialised and footprint reads the process's Metal memory. The page itself is checked in real Chrome by F7.
+
+## D19 — M1.1 config values (2026-09-28)
+Trim settings are what `trimFly` finds in calm air: C172 takeoff 0.0205 (70 KIAS, flaps 10°, full power, γ +4°), C172
+landing 0.0065 (65 KIAS, flaps 30°, γ −3°), 777 takeoff by mass at V2 + 10 (178 KIAS), flaps 15, γ +5°
+(`fdm/configs.ts`); F9 re-runs trimFly on every row. C172 takeoff flaps 10° (POH normal takeoff 0–10°). 777 takeoff
+flaps 15 (ACAP lists 5 / 15 / 20; 15 is the runway start's setting and F2's field length). 777 LANDING CONFIG SPD =
+Vref30 × √(mass / MLW) + 5 (Vref30 149 kt at MLW). The trim is set by a new control pair (`trimSet`, `trimTgt`: at
+once on the ground, at the trim rate airborne), so it is recorded and replayed like any input; F1's hashes did not
+change.
+
+## D20 — RTO autobrake and TO/GA (2026-09-28)
+The flight model had autobrake 1–5 only. Autobrake 6 = RTO: it arms above 85 kt on the ground with the levers open
+and brakes at MAX when they close; it disarms after lift-off. The flight model has no TO/GA mode, so TO/GA (Shift+T,
+or the TO/GA button on the ground) puts the levers full and, when TAKEOFF CONFIG armed the A/T, engages the existing
+autothrottle at SPD = V2 — on the ground that commands full thrust, after lift-off it holds V2 (lit on the MCP).
+
+## D21 — M1.1 missions and keys (2026-09-28)
+T and L were the engine's time and flashlight keys; the game resets both every frame (as it already does for F and G).
+Mission ① starts stabilised in the landing configuration (flaps 30, Vref + 5, spoilers armed, autobrake 3) so it
+lands with no input after A/T, A/P and APP; §11 already said the spoilers and autobrake were armed. Its "hands off"
+step ticks as soon as APP captures the glide slope, because the start is on the glide path. LANDING CONFIG over the
+Golden Gate on its default heading (145°) is inside 10L's window (8.9 NM, 28° off), so F9 tests the outside case on
+a 325° heading there (a `startOver` fixture on the start).

@@ -10,9 +10,10 @@
 | F5 World | PASS | 2026-09-28 | 18 ground starts ≤ 0.008 m from the drawn surface; NAIP runway axis 0–2 m from NASR; terrain / building / water / ring collisions detected; 4/4 negatives |
 | F6 Budget | PASS | 2026-09-28 | 10-min scripted flight, 1920×1080 low tier, M4: p95 49.8 fps (floor 39), ≤ 1.88 M tris (cap 2.35 M), 252 draws (cap 378), 916 MB GPU (cap 1,145), 0 errors; 4/4 negatives |
 | F7 Page | PASS | 2026-09-28 | build + audit clean; Chrome desktop: C172 right-hand pattern 28R via joystick fixture + keys, landed score 96 (A); replay director; 777 ILS via MCP clicks, autoland score 85; remap screen; phone 390×844 zh: 9/9 controls hit, no overflow, stick/throttle/flaps work; 4/4 negatives |
+| F9 Easy (M1.1) | PASS | 2026-09-28 | trims = trimFly (6 rows); 4 missions load exact start from the menu; checklists tick in order within 1 s of the gate's own condition, never before; ③ throttle step stays open 6 s at idle; ① autoland score 94, ② robot landing 95; TAKEOFF/LANDING CONFIG exact on both aircraft, APP not armed outside the ILS window; checklist + config buttons hit-tested 1440×900 and 390×844 in en/zh; 6/6 negatives |
 | F8 Look (advisory) | PASS | 2026-09-28 | stills in .verify/f8/: C172 over the Golden Gate at golden hour, 777 cockpit short final 28R at night, landing score, phone; 1/1 negative |
 
 ## Current
 
-M1 done 2026-09-28: F0–F7 green in one clean `./verify.sh` run (the second of the day; the first missed an F6 leak
-fixture that was then fixed). Next per SPEC §4: M2 (streamed high-detail tiles for the whole bay), M3 (live ATC).
+M1.1 (Easy flying) done 2026-09-28: Missions menu, guided checklist (zh/en, per-input key hints), TAKEOFF CONFIG (T),
+LANDING CONFIG (L), 777 TO/GA (Shift+T); F0–F7 + F9 green in one clean `./verify.sh`. Next per SPEC §4: M2, M3.

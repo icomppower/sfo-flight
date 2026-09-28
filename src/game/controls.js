@@ -25,22 +25,32 @@ export class PilotInput {
     this.actions = [];
     this.yoke = false; this.mouse = { x: 0, y: 0 };
     this.touch = { x: 0, y: 0, active: false, thr: null, brakes: false };
+    this.kind = null; this.mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
     this.pad = null; this.padKind = 'standard'; this.padMap = loadPadMap('standard'); this._btn = [];
     if (typeof window.addEventListener !== 'function') return;
     // one-shot keys, with the modifier as it was at the press (a quick Shift+A is over before the next frame)
     window.addEventListener('keydown', (e) => {
       if (e.repeat || (e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName))) return;
       const sh = e.shiftKey;
-      const act = { KeyF: sh ? 'flapUp' : 'flapDown', KeyG: 'gear', Slash: 'spoiler', KeyC: 'camera', KeyH: 'hud', Escape: 'menu', KeyR: 'replay', KeyP: 'pause' }[e.code]
+      this.kind = 'kb';
+      const act = { KeyF: sh ? 'flapUp' : 'flapDown', KeyG: 'gear', Slash: 'spoiler', KeyC: 'camera', KeyH: 'hud', Escape: 'menu', KeyR: 'replay', KeyP: 'pause', KeyT: sh ? 'toga' : 'toCfg', KeyL: 'ldgCfg' }[e.code]
         || (sh && e.code === 'KeyA' ? 'apPanel' : sh && e.code === 'KeyB' ? 'park' : sh && e.code === 'KeyE' ? 'startEngine' : null);
       if (act) this.press(act);
       if (e.code === 'KeyY') { this.yoke = !this.yoke; this.press('yoke'); }
     });
+    window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') this.kind = 'touch'; }, true);
     window.addEventListener('mousemove', (e) => { const r = dom.getBoundingClientRect(); this.mouse.x = (e.clientX - r.left) / r.width * 2 - 1; this.mouse.y = (e.clientY - r.top) / r.height * 2 - 1; });
     window.addEventListener('wheel', (e) => { if (this.yoke) this.thr = clamp(this.thr - Math.sign(e.deltaY) * 0.05, 0, 1); }, { passive: true });
     window.addEventListener('gamepadconnected', () => this.pollPad());
   }
   press(a) { this.actions.push(a); }
+  // the input the hints are written for: the last one used, else what this device most likely has
+  inputKind() {
+    if (this.yoke) return 'yoke';
+    let k = this.kind;
+    if (!k) k = globalThis.document?.documentElement.classList.contains('is-touch') ? 'touch' : this.pad ? 'pad' : 'kb';
+    return k === 'kb' && this.mac ? 'mac' : k;
+  }
   take() { const a = this.actions; this.actions = []; return a; }
 
   pollPad() {
@@ -72,6 +82,7 @@ export class PilotInput {
       const M = this.padMap, dz = (v) => (Math.abs(v) < 0.08 ? 0 : (v - Math.sign(v) * 0.08) / 0.92);
       const ax = (a) => (a && p.axes[a.i] != null ? dz(p.axes[a.i]) * (a.inv ? -1 : 1) : null);
       const e = ax(M.axes.elev), a = ax(M.axes.ail), r = ax(M.axes.rud), t = ax(M.axes.thr);
+      if ([e, a, r].some((v) => v != null && Math.abs(v) > 0.3)) this.kind = 'pad';
       if (e != null && Math.abs(e) > 0) elev = e; if (a != null && Math.abs(a) > 0) ail = a; if (r != null && Math.abs(r) > 0) rud = r;
       if (t != null) { if (M.thrMode === 'absolute') this.thr = clamp((t + 1) / 2, 0, 1); else this.thr = clamp(this.thr + t * 0.6 * dt, 0, 1); }
       const b = (name) => { const i = M.buttons[name]; const bt = i != null ? p.buttons[i] : null; return bt ? (typeof bt === 'object' ? bt.value || (bt.pressed ? 1 : 0) : bt) : 0; };

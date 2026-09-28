@@ -43,7 +43,9 @@ export class Instruments {
     // airspeed: 0–200 kt over 330°
     { const [x, y] = at(0, 0); this.dial(x, y, r); const m = (v) => clamp(v, 0, 200) / 200 * 330 * D + 15 * D;
       this.arcBand(x, y, r * 0.9, m(40), m(85), C.white, r * 0.06); this.arcBand(x, y, r * 0.96, m(48), m(129), C.green, r * 0.06); this.arcBand(x, y, r * 0.96, m(129), m(163), C.yellow, r * 0.06); this.arcBand(x, y, r * 0.96, m(162.5), m(164), C.red, r * 0.08);
-      this.ticks(x, y, r, 40, 200, 10, m, (v) => (v % 20 === 0 ? String(v) : null), r * 0.15); this.text('KNOTS', x, y + r * 0.35, r * 0.11, C.dim); this.needle(x, y, r, m(s.cas)); }
+      this.ticks(x, y, r, 40, 200, 10, m, (v) => (v % 20 === 0 ? String(v) : null), r * 0.15); this.text('KNOTS', x, y + r * 0.35, r * 0.11, C.dim);
+      if (ctx.bug) { const a = m(ctx.bug); g.fillStyle = C.mag; g.beginPath(); g.moveTo(x + Math.sin(a) * r * 0.98, y - Math.cos(a) * r * 0.98); g.lineTo(x + Math.sin(a - 0.06) * r * 1.1, y - Math.cos(a - 0.06) * r * 1.1); g.lineTo(x + Math.sin(a + 0.06) * r * 1.1, y - Math.cos(a + 0.06) * r * 1.1); g.fill(); }
+      this.needle(x, y, r, m(s.cas)); }
     // attitude
     { const [x, y] = at(1, 0); this.dial(x, y, r); g.save(); g.beginPath(); g.arc(x, y, r * 0.9, 0, 7); g.clip();
       g.translate(x, y); g.rotate(-e.phi); const py = e.theta / D * r * 0.045;
@@ -196,7 +198,7 @@ export class Instruments {
   strip(ctx, w, h) {
     const g = this.g, s = ctx.sim, L = ctx.L;
     g.fillStyle = 'rgba(8,14,22,0.55)'; g.fillRect(0, 0, w, h);
-    const items = [['KIAS', Math.round(s.cas)], ['ALT', Math.round(s.altMsl / FT)], ['V/S', Math.round(s.vsFpm / 50) * 50], ['HDG', String(Math.round(((ctx.hdgMag % 360) + 360) % 360)).padStart(3, '0')], [s.ac.id === 'c172' ? 'RPM' : 'N1', s.ac.id === 'c172' ? Math.round(s.rpm) : s.n1[0].toFixed(0)], [L.flaps, s.ac.flaps.detents[s.flapIdx]]];
+    const items = [['KIAS', ctx.bug ? `${Math.round(s.cas)}/${ctx.bug}` : Math.round(s.cas)], ['ALT', Math.round(s.altMsl / FT)], ['V/S', Math.round(s.vsFpm / 50) * 50], ['HDG', String(Math.round(((ctx.hdgMag % 360) + 360) % 360)).padStart(3, '0')], [s.ac.id === 'c172' ? 'RPM' : 'N1', s.ac.id === 'c172' ? Math.round(s.rpm) : s.n1[0].toFixed(0)], [L.flaps, s.ac.flaps.detents[s.flapIdx]]];
     const cw = w / items.length;
     items.forEach(([k, v], i) => { this.text(k, cw * (i + 0.5), h * 0.3, h * 0.2, C.dim); this.text(String(v), cw * (i + 0.5), h * 0.68, h * 0.32, C.ink, 'center', true); });
     if (s.stall) this.text(L.stall, w / 2, h * 0.5, h * 0.4, C.red, 'center', true);

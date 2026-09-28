@@ -31,15 +31,16 @@ export interface Controls {
   brakeL: number; brakeR: number; park: number; // 0..1, park 0/1
   spoiler: number; // 0..1 lever; −1 = armed for landing
   trim: number; // −1 nose down, 0, +1 nose up (rate)
+  trimSet: number; trimTgt: number; // trimSet 1: drive the trim to trimTgt (set at once on the ground, at the trim rate airborne); the rate switch overrides
   tiller: number; // −1..1 (nose wheel, heavy only)
-  autobrake: number; // 0 off, 1..5 (5 = MAX)
+  autobrake: number; // 0 off, 1..5 (5 = MAX), 6 = RTO (MAX braking when the levers close above 85 kt on the ground)
   mixture: number; mags: number; starter: number; master: number; // piston: 0..1, 0/1, 0/1, 0/1
   ap: number; // MCP event this step (fdm/autopilot.ts AP_EVENT), 0 = none
   mcpHdg: number; mcpAlt: number; mcpVs: number; mcpSpd: number; // deg true, ft, fpm, KIAS
 }
 export function neutralControls(ac: AircraftData): Controls {
   const n = ac.engine.kind === 'turbofan' ? (ac.engine as FanDef).count : 1;
-  return { elev: 0, ail: 0, rud: 0, thr: new Array(n).fill(0), flap: 0, gear: 1, brakeL: 0, brakeR: 0, park: 0, spoiler: 0, trim: 0, tiller: 0, autobrake: 0,
+  return { elev: 0, ail: 0, rud: 0, thr: new Array(n).fill(0), flap: 0, gear: 1, brakeL: 0, brakeR: 0, park: 0, spoiler: 0, trim: 0, trimSet: 0, trimTgt: 0, tiller: 0, autobrake: 0,
     mixture: 1, mags: 1, starter: 0, master: 1, ap: 0, mcpHdg: 0, mcpAlt: 0, mcpVs: 0, mcpSpd: 0 };
 }
 
@@ -84,7 +85,7 @@ export class Sim {
   // derived each step (read by the render layer, the autopilot and the gates)
   air!: Air; alpha = 0; beta = 0; alphaDot = 0; tas = 0; cas = 0; mach = 0; qbar = 0; nz = 1; agl = 0; groundH = 0;
   windNed: V3 = [0, 0, 0]; forceB: V3 = [0, 0, 0]; thrust = 0; fuelFlow = 0; CL = 0; CD = 0;
-  gearLoad: number[]; onGround = false; stall = false; ydWash = 0; ydOut = 0; autobrakeCmd = 0; abDecel = 0;
+  gearLoad: number[]; onGround = false; stall = false; ydWash = 0; ydOut = 0; autobrakeCmd = 0; abDecel = 0; rtoArmed = false;
   vRef = 0; gRef = 0; uOut = 0; // heavy FBW: trim reference speed (kt) and flight path (rad), and the elevator term (rad)
   // events
   crashed: CrashReason | null = null; crashT = 0; tailstrike = false; touchdowns: TouchdownEvent[] = []; airborneT = 0; maxNz = 1;
@@ -178,6 +179,7 @@ export class Sim {
     this.ydOut = yd;
     this.dr += clamp(clamp(c.rud, -1, 1) * C.dr.v + yd - this.dr, -r, r);
     this.trimPos = clamp(this.trimPos - clamp(c.trim, -1, 1) * C.trimRate * DT, C.trimRange[0], C.trimRange[1]); // trim +1 = nose up = trailing edge / stabilizer nose-up (negative)
+    if (c.trimSet > 0.5 && c.trim === 0) { const tg = clamp(c.trimTgt, C.trimRange[0], C.trimRange[1]); this.trimPos = this.onGround ? tg : this.trimPos + clamp(tg - this.trimPos, -C.trimRate * DT, C.trimRate * DT); }
     // flaps toward the selected detent
     const fi = clamp(Math.round(c.flap), 0, ac.flaps.detents.length - 1);
     this.flapIdx = fi;
@@ -198,8 +200,10 @@ export class Sim {
     const pk = c.park > 0.5 ? 1 : 0;
     let bL = Math.max(c.brakeL, pk), bR = Math.max(c.brakeR, pk);
     const ab = ac.brakes.autobrake;
-    if (ab && c.autobrake > 0 && mains && c.thr.every((x) => x < 0.15) && c.brakeL < 0.2 && c.brakeR < 0.2) {
-      const target = ab[clamp(Math.round(c.autobrake), 1, ab.length) - 1];
+    const idle = c.thr.every((x) => x < 0.15), rto = c.autobrake > 5.5;
+    if (rto) { if (!mains && !this.onGround) this.rtoArmed = false; else if (this.gs > 85 * KT && !idle) this.rtoArmed = true; } else this.rtoArmed = false;
+    if (ab && c.autobrake > 0 && (!rto || this.rtoArmed) && mains && idle && c.brakeL < 0.2 && c.brakeR < 0.2) {
+      const target = ab[rto ? ab.length - 1 : clamp(Math.round(c.autobrake), 1, ab.length) - 1];
       // along-track deceleration from the velocity change of the last step
       // to a full stop (Boeing autobrake holds until disarmed by the throttles or the pedals)
       const decel = this.abDecel;

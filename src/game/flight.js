@@ -19,6 +19,9 @@ import { makeStart } from './starts.js';
 import { weatherFrom, fdmWeather, hazeFor } from './weather.js';
 import { pickLang } from './i18n.js';
 import { TestPilot } from '../../fdm/pilot.ts';
+import { MISSIONS, Checklist, ctxOf, hintFor } from './missions.js';
+import { applyConfig, toga, TAKEOFF_ITEMS, LANDING_ITEMS } from './config.js';
+import { CONFIGS, takeoffTrim, vref, RTO } from '../../fdm/configs.ts';
 
 const AC = { c172: C172, b77w: B77W };
 const FT = 0.3048, KT = 0.514444;
@@ -40,10 +43,12 @@ class FlightGame {
     this.state = 'menu'; this.acc = 0; this.pose0 = {}; this.pose1 = {}; this.instT = 0; this.hudT = 0; this.endT = 0;
     this.mcp = { spd: 170, hdg: 280, alt: 3000, vs: 0 }; this.mcpOn = false; this.autobrake = 0; this.eng = { master: true, mags: true, mixture: true };
     this.hudHidden = false; this.camIdx = 0; this.replayState = null; this.lastLog = null;
+    this.mission = null; this.checklist = null; this.bug = null; this.atArm = false;
     this.wire();
-    if (qs.has('autostart') || qs.has('start')) this.startFlight(); else this.ui.showMenu('menu');
+    const mq = MISSIONS.find((m) => String(m.id) === qs.get('mission'));
+    if (mq) this.startMission(mq.id); else if (qs.has('autostart') || qs.has('start')) this.startFlight(); else this.ui.showMenu('menu');
     globalThis.__sfo = this;
-    this.tools = { TestPilot, AP_EVENT }; // page gates: the scripted pilot's control laws (its outputs go through the Gamepad API)
+    this.tools = { TestPilot, AP_EVENT, MISSIONS, TAKEOFF_ITEMS, LANDING_ITEMS, CONFIGS, takeoffTrim, vref, RTO }; // page gates: the scripted pilot's control laws (its outputs go through the Gamepad API), the M1.1 tables
   }
 
   wire() {
@@ -54,10 +59,15 @@ class FlightGame {
       else if (go === 'fly') this.startFlight();
       else if (go === 'replay') this.startReplay();
       else if (go === 'remap') ui.showRemap(this.pilot.padKind);
+      else if (go === 'checklist') { if (this.checklist) this.checklist.hidden = false; ui.hideOverlay(); this.state = this.flight ? 'flying' : 'menu'; }
     };
+    ui.on.mission = (id) => this.startMission(id);
+    ui.on.howto = (state) => ui.showHowTo(this.pilot.inputKind(), () => ui.showMenu(state));
+    ui.on.config = (w) => this.pilot.press(w === 'takeoff' ? 'toCfg' : w === 'landing' ? 'ldgCfg' : 'toga');
+    ui.on.checklist = (a) => { if (!this.checklist) return; if (a === 'skip') this.checklist.skip(performance.now()); else this.checklist.hidden = true; };
     ui.on.remapDone = () => { this.pilot.padMap = loadPadMap(this.pilot.padKind); ui.showMenu(this.flight && this.state !== 'menu' ? 'paused' : 'menu'); };
     ui.on.bind = (kind, map, what, done) => this.bindNext(kind, map, what, done);
-    ui.on.result = (go) => { if (go === 'replay') this.startReplay(); else if (go === 'again') this.startFlight(); else { this.state = 'menu'; ui.showMenu('menu'); } };
+    ui.on.result = (go) => { if (go === 'replay') this.startReplay(); else if (go === 'again') { if (this.mission) this.startMission(this.mission.id); else this.startFlight(); } else { this.state = 'menu'; ui.showMenu('menu'); } };
     ui.on.action = (a) => this.pilot.press(a);
     ui.on.brakes = (on) => { this.pilot.touch.brakes = on; };
     ui.on.stick = (x, y) => { this.pilot.touch.active = true; this.pilot.touch.x = x; this.pilot.touch.y = -y; };
@@ -65,7 +75,7 @@ class FlightGame {
     ui.on.throttle = (v) => { this.pilot.touch.thr = v; };
     ui.on.mcpEvent = (e) => { if (e === 'VS') this.mcp.vs = Math.round(this.flight.sim.vsFpm / 100) * 100; this.pending = AP_EVENT[e === 'VS' ? 'VS' : e]; };
     ui.on.mcpKnob = (k, d) => { const M = this.mcp; if (k === 'SPD') M.spd = clamp(M.spd + d, 60, 340); if (k === 'HDG') M.hdg = ((M.hdg + d) % 360 + 360) % 360; if (k === 'ALT') M.alt = clamp(M.alt + d * 100, 0, 40000); if (k === 'VS') M.vs = clamp(M.vs + d * 100, -6000, 6000); };
-    ui.on.autobrake = (d) => { this.autobrake = clamp(this.autobrake + d, 0, 5); };
+    ui.on.autobrake = (d) => { this.autobrake = clamp(this.autobrake + d, 0, RTO); };
     ui.on.engineSwitch = (s, down) => { if (s === 'starter') this.starter = down; else if (down) this.eng[s] = !this.eng[s]; };
   }
 
@@ -85,15 +95,26 @@ class FlightGame {
     requestAnimationFrame(tick);
   }
 
-  async startFlight() {
+  // a mission: its start, aircraft, runway, time and weather, and its guided checklist
+  startMission(id) {
+    const m = MISSIONS.find((x) => x.id === id); if (!m) return;
+    this.opts = { ...this.opts, ac: m.ac, start: m.start, rwy: m.rwy, time: m.time, wx: m.wx, lang: this.lang };
+    this.ui.opts = this.opts;
+    return this.startFlight(m);
+  }
+
+  async startFlight(mission = null) {
     const o = this.opts, ac = AC[o.ac], W = this.W, app = this.app;
+    this.mission = mission; this.checklist = null; this.ui.hasChecklist = !!mission;
     this.ui.hideOverlay();
     this.stopReplay();
     this.state = 'loading';
     const wx = weatherFrom(new URLSearchParams(o.wx === 'custom' ? `wind=${o.wind}&vis=${o.vis}` : ''), W.metars, o.wx === 'custom' ? null : o.wx);
     if (o.wx === 'custom' && app.qs.get('metar')) Object.assign(wx, weatherFrom(app.qs, W.metars, null));
     this.wx = wx;
-    const start = makeStart(o.start, o.ac, o.rwy, W);
+    // mission ① starts stabilised in the landing configuration (flaps 30, Vref + 5), like SPEC §11's "already armed"
+    const over = mission?.startCfg === 'landing' && o.ac === 'b77w' ? { flap: CONFIGS.b77w.landing.flap, cas: Math.round(vref(ac, makeStart(o.start, o.ac, o.rwy, W).mass) + CONFIGS.b77w.landing.vrefAdd) } : null;
+    const start = { ...makeStart(o.start, o.ac, o.rwy, W), ...over, ...o.startOver }; // startOver: a gate fixture (e.g. another heading)
     this.flight = new Flight(ac, start, fdmWeather(wx, W.airport.trueNorthGridDeg), app.qs.get('seed') || 'sfo-flight', { ground: W.ground, ils: W.ils, runways: W.runways });
     this.c = { ...this.flight.initial, thr: this.flight.initial.thr.slice() };
     this.pilot.thr = this.c.thr[0];
@@ -111,7 +132,11 @@ class FlightGame {
     AircraftView.poseOf(s, this.pose0); AircraftView.poseOf(s, this.pose1);
     this.acc = 0; this.endT = 0; this.state = 'flying'; this.camIdx = Math.max(0, CAMS.indexOf(app.qs.get('cam') || 'cockpit')); this.cams.mode = CAMS[this.camIdx]; this.msgT = 0;
     this.ui.showMcp(false); this.mcpOn = false;
+    this.bug = null; this.atArm = false; this.cfgApplied = null; this.camIdx0 = this.camIdx; this.cfgMsg = null;
+    if (mission) this.checklist = new Checklist(mission, performance.now());
   }
+  // trim to a setting: the flight model drives it there (at once on the ground, at the trim rate airborne)
+  setTrim(v) { this.c.trimSet = 1; this.c.trimTgt = v; }
 
   magOf(psi) { return ((psi * 180 / Math.PI - this.W.airport.trueNorthGridDeg - this.W.airport.magVar) % 360 + 360) % 360; }
   gridOfMag(m) { return ((m + this.W.airport.magVar + this.W.airport.trueNorthGridDeg) % 360 + 360) % 360; }
@@ -134,6 +159,8 @@ class FlightGame {
       else if (a === 'apToggle' && ac.id === 'b77w') this.pending = AP_EVENT.AP;
       else if (a === 'startEngine' && ac.id === 'c172') { this.eng = { master: true, mags: true, mixture: true }; this.starterAuto = 2.5; }
       else if (a === 'brakes') { /* touch brakes are held via ui.on.brakes */ }
+      else if (a === 'toCfg' || a === 'ldgCfg') { const w = a === 'toCfg' ? 'takeoff' : 'landing', why = applyConfig(this, w); this.cfgMsg = { text: why ? ui.L.cfg[why] || '' : ui.L.cfg.set[w], cls: why ? 'warn' : 'info', t: performance.now() }; }
+      else if (a === 'toga') toga(this);
     }
   }
 
@@ -141,6 +168,8 @@ class FlightGame {
     const app = this.app;
     if (!app.freeCam) app.setFreeCam(true); // F is the flaps here, not the engine's walk/fly toggle
     if (app.autopilot) app.setAutopilot(false); // G is the gear here, not the ferry autopilot
+    if (app.settings.timeSpeed) app.settings.timeSpeed = 0; // T is TAKEOFF CONFIG here, not the engine's time toggle
+    if (app.localLights?.flashlight?.on) app.localLights.toggleFlashlight(false); // L is LANDING CONFIG, not the flashlight
     // no pointer lock: the menus, the MCP and the mouse yoke need a cursor (look-around works by dragging)
     if (!this.headless && document.pointerLockElement) document.exitPointerLock?.();
     // keys are read in every state (Esc resumes, R replays); the controls only reach the aircraft while flying
@@ -173,7 +202,11 @@ class FlightGame {
         c.ap = 0; this.acc -= DT; n++;
       }
       AircraftView.poseOf(sim, this.pose1);
-      if (n === 0) { /* keep the previous pair */ }
+      // a trim setting is done once reached, or when the pilot trims; RTO disarms after lift-off; the A/T arm clears
+      if (c.trimSet && (c.trim !== 0 || Math.abs(sim.trimPos - c.trimTgt) < 1e-6)) c.trimSet = 0;
+      if (this.autobrake === RTO && !sim.onGround && sim.agl > 10) this.autobrake = 0;
+      if (this.atArm && this.flight.ap?.at) this.atArm = false;
+      if (this.checklist) { const x = ctxOf(this); this.checklist.update(x, performance.now()); this.onFrame?.(this, x); }
       if ((sim.crashed || this.flight.scorer.landing?.complete) && !this.endT) this.endT = performance.now();
       if (this.endT && performance.now() - this.endT > (sim.crashed ? 1500 : 2500) && this.state === 'flying') this.finish();
     }
@@ -196,8 +229,8 @@ class FlightGame {
       this.instT = 0;
       const touch = !this.headless && document.documentElement.classList.contains('is-touch');
       const ap = this.flight.ap, wind = this.flight.weather.wind;
-      if (this.inst) this.inst.draw({ sim, ap, ac: this.ac, L: this.ui.L, airport: this.W.airport, hdgMag: this.magOf(sim.euler.psi), radAltFt: Math.max(0, sim.agl / FT), mcp: { spd: ap && ap.at ? this.mcp.spd : null, alt: ap && ap.on ? this.mcp.alt : null }, windFromMag: this.magOf(wind.dir * Math.PI / 180), spoilerArmed: this.c.spoiler < 0, autobrake: this.autobrake }, camName === 'cockpit' && !touch ? 'panel' : 'strip');
-      if (this.ac.id === 'b77w') this.ui.showMcp(this.mcpOn && this.state !== 'replay', { ...this.mcp, ab: this.autobrake, spoilerArmed: this.c.spoiler < 0, lit: { AP: ap?.on, AT: ap?.at, LOC: ap && (ap.lat === 'LOC' || ap.locArm), APP: ap && (ap.vert === 'GS' || ap.gsArm), HDG: ap?.on && ap.lat === 'HDG', ALT: ap?.on && (ap.vert === 'ALT' || ap.vert === 'ALT*'), VS: ap?.on && ap.vert === 'VS' } });
+      if (this.inst) this.inst.draw({ sim, ap, ac: this.ac, L: this.ui.L, airport: this.W.airport, hdgMag: this.magOf(sim.euler.psi), radAltFt: Math.max(0, sim.agl / FT), mcp: { spd: ap && ap.at ? this.mcp.spd : null, alt: ap && ap.on ? this.mcp.alt : null }, bug: this.bug, windFromMag: this.magOf(wind.dir * Math.PI / 180), spoilerArmed: this.c.spoiler < 0, autobrake: this.autobrake }, camName === 'cockpit' && !touch ? 'panel' : 'strip');
+      if (this.ac.id === 'b77w') this.ui.showMcp(this.mcpOn && this.state !== 'replay', { ...this.mcp, ab: this.autobrake, atArm: this.atArm, spoilerArmed: this.c.spoiler < 0, lit: { AP: ap?.on, AT: ap?.at, LOC: ap && (ap.lat === 'LOC' || ap.locArm), APP: ap && (ap.vert === 'GS' || ap.gsArm), HDG: ap?.on && ap.lat === 'HDG', ALT: ap?.on && (ap.vert === 'ALT' || ap.vert === 'ALT*'), VS: ap?.on && ap.vert === 'VS' } });
       else this.ui.showEngine((this.engOn || !sim.running) && this.state !== 'replay', { ...this.eng, running: sim.running });
       this.ui.setThrottleSlider(this.pilot.thr);
     }
@@ -212,9 +245,14 @@ class FlightGame {
       else if (!sim.onGround && sim.agl < 500 * FT && sim.vsFpm < -2000) msg = L.pull;
       else if (sim.tailstrike && sim.onGround) msg = L.tail;
       else if (ap && ap.disconnectReason === 'override' && performance.now() - (this.apOffT || 0) < 3000) { msg = L.apOff; cls = 'info'; }
+      else if (this.cfgMsg && performance.now() - this.cfgMsg.t < 2500) { msg = this.cfgMsg.text; cls = this.cfgMsg.cls; }
       else if (this.c.park > 0.5 && sim.onGround) { msg = L.parked; cls = 'info'; }
       if (ap && ap.disconnectReason === 'override' && !this.apOffT) this.apOffT = performance.now();
       const camLabel = this.state === 'replay' ? L.replaying + ' · ' + (L.shots[this.cams.shot] || '') : L.cams[camName];
+      const live = this.state === 'flying' || this.state === 'paused';
+      this.ui.setCfgBar(live, { onGround: sim.onGround, toga: this.ac.id === 'b77w' && sim.onGround });
+      const K = this.checklist;
+      this.ui.showChecklist(live && K && !K.hidden ? { mission: K.m.id, i: K.i, n: K.m.steps.length, step: K.step?.id, done: K.done, hint: K.step ? hintFor(this.lang, K.step.hint, this.pilot.inputKind()) : '' } : null);
       this.ui.hud({ ac: this.ac.name.replace(' (class)', ''), startName: this.startName, metar: this.wx.metar, cam: camLabel, camSub: this.state === 'paused' ? '⏸' : '', msg, msgCls: cls });
     }
   }

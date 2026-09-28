@@ -13,9 +13,12 @@ Fly a Cessna 172 or a Boeing 777 from San Francisco International over the real 
 - **Controls:** keyboard, mouse yoke (Y), any gamepad or joystick (remap in the menu), phone stick and throttle.
   Starts: ramp (172 cold and dark optional), runway, 9 / 3 NM final, over the Golden Gate. Real KSFO METARs or your
   own wind. English / 中文.
+- **Easy flying (M1.1):** four one-tap **Missions** (watch the 777 autoland, land the Cessna, take off, sightsee the
+  Golden Gate) with a guided checklist that ticks itself and shows the key for your input; **TAKEOFF CONFIG** (T) and
+  **LANDING CONFIG** (L) for both aircraft, TO/GA (Shift+T) on the 777; **How to fly** in the menu.
 
 URL parameters: `ac=c172|b77w`, `start=ramp|rampCold|runway|final9|final3|ggb`, `rwy=28R`, `wx=<metar pick>`,
-`wind=280/15G22`, `vis=10`, `metar=…`, `time=dawn|day|golden|night`, `cam=cockpit|chase|tower|free`, `lang=zh`.
+`wind=280/15G22`, `vis=10`, `metar=…`, `time=dawn|day|golden|night`, `cam=cockpit|chase|tower|free`, `lang=zh`, `mission=1..4`.
 
-Build: `npm install && npm run dev`. Data: `npm run fetch-data && npm run bake`. Gates: `./verify.sh` (F0–F7, F8
+Build: `npm install && npm run dev`. Data: `npm run fetch-data && npm run bake`. Gates: `./verify.sh` (F0–F7 and F9, F8
 advisory). Decisions in `DECISIONS.md`, sources in `CREDITS.md`, frozen targets in `SPEC-THRESHOLDS.md`.

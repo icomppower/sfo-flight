@@ -4,6 +4,7 @@
 import { T } from './i18n.js';
 import { STARTS, RUNWAYS } from './starts.js';
 import { PAD_ACTIONS, loadPadMap, savePadMap, DEFAULT_PAD } from './controls.js';
+import { MISSIONS } from './missions.js';
 
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 export const TIMES = { dawn: 6.6, day: 12.0, golden: 17.4, night: 20.6 }; // local solar time (the engine's timeOfDay)
@@ -19,6 +20,8 @@ export class GameUI {
       <div class="sf-mcp" hidden></div>
       <div class="sf-eng" hidden></div>
       <div class="sf-help"></div>
+      <div class="sf-cfg" hidden><button data-cfg="takeoff"></button><button data-cfg="landing"></button><button data-cfg="toga" hidden></button></div>
+      <div class="sf-check" hidden><div class="ck-head"><small></small><button data-ck="skip"></button><button data-ck="hide" aria-label="hide">✕</button></div><p class="ck-text"></p><p class="ck-key"><kbd></kbd></p></div>
       <div class="sf-touch">
         <div class="sf-stick"><i></i></div>
         <div class="sf-thr"><input type="range" min="0" max="100" value="0" aria-label="throttle"></div>
@@ -40,11 +43,47 @@ export class GameUI {
     st.addEventListener('pointermove', (e) => { if (e.pointerId === pid) move(e); });
     const up = (e) => { if (e.pointerId !== pid) return; pid = null; this.dom.knob.style.transform = ''; this.on.stickEnd?.(); };
     st.addEventListener('pointerup', up); st.addEventListener('pointercancel', up);
+    this.dom.cfg = q('.sf-cfg'); this.dom.check = q('.sf-check');
+    this.dom.cfg.addEventListener('pointerdown', (e) => { const b = e.target.closest('button'); if (!b) return; e.preventDefault(); e.stopPropagation(); this.on.config?.(b.dataset.cfg); });
+    this.dom.check.addEventListener('pointerdown', (e) => { const b = e.target.closest('button'); if (!b) return; e.preventDefault(); e.stopPropagation(); this.on.checklist?.(b.dataset.ck); });
     this.dom.thr.addEventListener('input', () => this.on.throttle?.(Number(this.dom.thr.value) / 100));
     for (const ev of ['pointerdown', 'touchstart']) this.dom.thr.addEventListener(ev, (e) => e.stopPropagation());
     this.setLang(lang);
   }
-  setLang(lang) { this.lang = lang; this.L = T(lang); this.dom.help.textContent = this.L.help; document.documentElement.lang = lang === 'zh' ? 'zh-Hant' : 'en'; }
+  setLang(lang) {
+    this.lang = lang; this.L = T(lang); this.dom.help.textContent = this.L.help; document.documentElement.lang = lang === 'zh' ? 'zh-Hant' : 'en';
+    for (const b of this.dom.cfg.querySelectorAll('button')) b.textContent = this.L.cfg[b.dataset.cfg];
+    this.dom.check.querySelector('[data-ck="skip"]').textContent = this.L.skip; this._ck = null;
+  }
+
+  // ---- TAKEOFF / LANDING CONFIG buttons (and the 777's TO/GA): the one that applies now is lit
+  setCfgBar(on, st) {
+    const d = this.dom.cfg; if (d.hidden === on) d.hidden = !on; if (!on) return;
+    d.querySelector('[data-cfg="takeoff"]').classList.toggle('on', st.onGround);
+    d.querySelector('[data-cfg="landing"]').classList.toggle('on', !st.onGround);
+    const tg = d.querySelector('[data-cfg="toga"]'); if (tg.hidden !== !st.toga) tg.hidden = !st.toga;
+  }
+  // ---- guided checklist: one step at a time, the key for the active input
+  showChecklist(st) {
+    const d = this.dom.check; const on = !!st; if (d.hidden === on) d.hidden = !on; if (!on) return;
+    const L = this.L, key = `${this.lang}|${st.mission}|${st.i}|${st.hint}|${st.done}`;
+    if (this._ck === key) return; this._ck = key;
+    d.querySelector('.ck-head small').textContent = st.done ? L.m[st.mission].name : `${L.m[st.mission].name} · ${L.stepOf} ${st.i + 1}/${st.n}`;
+    d.querySelector('.ck-text').textContent = st.done ? L.missionDone : L.steps[st.mission][st.step];
+    const k = d.querySelector('kbd'); k.textContent = st.done ? '' : st.hint; k.parentElement.hidden = st.done || !st.hint;
+    d.querySelector('[data-ck="skip"]').hidden = st.done;
+    d.classList.toggle('done', st.done);
+  }
+  // ---- how to fly: the reversed-pitch note and the keys for the active input
+  showHowTo(kind, back) {
+    const L = this.L, d = this.dom.overlay; d.hidden = false; d.className = 'sf-overlay sf-howto';
+    const rows = L.howtoKeys[kind] || L.howtoKeys.kb;
+    d.innerHTML = `<div class="sf-card"><h2>${L.howto}</h2><p class="sf-rev">${L.reversed}</p>
+      <table>${rows.map(([a, k]) => `<tr><td>${a}</td><td><kbd>${k}</kbd></td></tr>`).join('')}</table>
+      <p class="sf-keys">${L.anytime}</p>
+      <div class="sf-actions"><button data-go="back" class="primary">${L.back}</button></div></div>`;
+    d.querySelector('[data-go="back"]').addEventListener('click', () => back());
+  }
 
   hud({ ac, startName, metar, cam, camSub, msg, msgCls }) {
     const d = this.dom;
@@ -74,8 +113,9 @@ export class GameUI {
       });
     }
     const set = (k, v) => { const b = d.querySelector(`[data-v="${k}"]`); if (b.textContent !== v) b.textContent = v; };
-    set('SPD', String(st.spd)); set('HDG', String(st.hdg).padStart(3, '0')); set('ALT', String(st.alt)); set('VS', String(st.vs)); set('AB', st.ab ? (st.ab === 5 ? 'MAX' : String(st.ab)) : 'OFF');
+    set('SPD', String(st.spd)); set('HDG', String(st.hdg).padStart(3, '0')); set('ALT', String(st.alt)); set('VS', String(st.vs)); set('AB', st.ab ? (st.ab === 6 ? 'RTO' : st.ab === 5 ? 'MAX' : String(st.ab)) : 'OFF');
     for (const b of d.querySelectorAll('[data-e]')) b.classList.toggle('on', !!st.lit[b.dataset.e]);
+    d.querySelector('[data-e="AT"]').classList.toggle('arm', !!st.atArm && !st.lit.AT);
     d.querySelector('[data-sp]').classList.toggle('on', st.spoilerArmed);
   }
   // ---- 172 engine switches (cold and dark)
@@ -99,6 +139,9 @@ export class GameUI {
     const opt = (v, t, sel) => `<option value="${v}"${sel ? ' selected' : ''}>${t}</option>`;
     d.innerHTML = `<div class="sf-card">
       <h1>${L.title}</h1><p class="sf-tag">${L.tagline}</p>
+      <h3>${L.missions}</h3>
+      <div class="sf-missions">${MISSIONS.map((m) => `<button data-mission="${m.id}"><b>${L.m[m.id].name}</b><small>${L.m[m.id].sub}</small></button>`).join('')}</div>
+      <h3>${L.freeFlight}</h3>
       <div class="sf-grid">
         <label>${L.aircraft}<select data-o="ac">${opt('c172', L.c172, o.ac === 'c172')}${opt('b77w', L.b77w, o.ac === 'b77w')}</select></label>
         <label>${L.startAt}<select data-o="start">${STARTS.filter((s) => s !== 'rampCold' || o.ac === 'c172').map((s) => opt(s, L[s], o.start === s)).join('')}</select></label>
@@ -114,6 +157,8 @@ export class GameUI {
         ${state === 'paused' ? `<button data-go="resume" class="primary">${L.resume}</button>` : ''}
         <button data-go="fly" class="${state === 'paused' ? '' : 'primary'}">${L.fly}</button>
         ${state === 'paused' ? `<button data-go="replay">${L.replay}</button>` : ''}
+        ${state === 'paused' && this.hasChecklist ? `<button data-go="checklist">${L.checklist}</button>` : ''}
+        <button data-go="howto">${L.howto}</button>
         <button data-go="remap">${L.remap}</button>
       </div>
       <p class="sf-keys">${L.help}</p></div>`;
@@ -124,7 +169,8 @@ export class GameUI {
       d.querySelector('[data-o="rwy"]').closest('label').hidden = !['runway', 'final9', 'final3'].includes(o.start);
     };
     d.querySelectorAll('[data-o]').forEach((s) => s.addEventListener('change', () => { sync(); if (s.dataset.o === 'lang') { this.setLang(o.lang); this.showMenu(state); } if (s.dataset.o === 'ac') this.showMenu(state); }));
-    d.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => { sync(); this.on.menu?.(b.dataset.go, o); }));
+    d.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => { sync(); if (b.dataset.go === 'howto') this.on.howto?.(state); else this.on.menu?.(b.dataset.go, o); }));
+    d.querySelectorAll('[data-mission]').forEach((b) => b.addEventListener('click', () => { sync(); this.on.mission?.(Number(b.dataset.mission)); }));
     sync();
   }
   hideOverlay() { this.dom.overlay.hidden = true; this.dom.overlay.innerHTML = ''; }
@@ -169,5 +215,5 @@ export class GameUI {
 export class NullUI {
   constructor(lang, metars, opts) { this.lang = lang; this.metars = metars; this.opts = opts; this.on = {}; this.L = T(lang); this.dom = { panel: null }; this.root = { classList: { toggle() {} } }; }
   setLang(lang) { this.lang = lang; this.L = T(lang); }
-  hud() {} setThrottleSlider() {} showMcp() {} showEngine() {} showMenu() {} hideOverlay() {} showResult() {} showRemap() {} dispose() {}
+  hud() {} setThrottleSlider() {} setCfgBar() {} showChecklist() {} showHowTo() {} showMcp() {} showEngine() {} showMenu() {} hideOverlay() {} showResult() {} showRemap() {} dispose() {}
 }

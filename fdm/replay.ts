@@ -5,7 +5,7 @@
 import { Sim, type Controls, type Start, type Weather, type Ground, neutralControls } from './sim.ts';
 import type { AircraftData } from './aircraft/types.ts';
 
-const KEYS: (keyof Controls)[] = ['elev', 'ail', 'rud', 'flap', 'gear', 'brakeL', 'brakeR', 'park', 'spoiler', 'trim', 'tiller', 'autobrake', 'mixture', 'mags', 'starter', 'master', 'ap', 'mcpHdg', 'mcpAlt', 'mcpVs', 'mcpSpd'];
+const KEYS: (keyof Controls)[] = ['elev', 'ail', 'rud', 'flap', 'gear', 'brakeL', 'brakeR', 'park', 'spoiler', 'trim', 'trimSet', 'trimTgt', 'tiller', 'autobrake', 'mixture', 'mags', 'starter', 'master', 'ap', 'mcpHdg', 'mcpAlt', 'mcpVs', 'mcpSpd'];
 const Q = 1024;
 export function quantize(c: Controls): Controls {
   for (const k of KEYS) (c as any)[k] = Math.round((c as any)[k] * Q) / Q;
