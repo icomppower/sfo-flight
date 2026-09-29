@@ -32,7 +32,7 @@ function trims() {
   return fail;
 }
 
-const PAD = () => { const pad = { id: 'SFO fixture joystick', index: 0, connected: true, mapping: '', timestamp: 0, axes: [0, 0, 1, 0, 0, 0], buttons: Array.from({ length: 16 }, () => ({ pressed: false, value: 0 })) }; navigator.getGamepads = () => [pad]; window.__pad = pad; };
+export const PAD = () => { const pad = { id: 'SFO fixture joystick', index: 0, connected: true, mapping: '', timestamp: 0, axes: [0, 0, 1, 0, 0, 0], buttons: Array.from({ length: 16 }, () => ({ pressed: false, value: 0 })) }; navigator.getGamepads = () => [pad]; window.__pad = pad; };
 
 // the gate's own step conditions (SPEC §11/§12 wording), evaluated on every frame the game runs
 const INSTALL = (id) => {
@@ -73,7 +73,7 @@ export function timing(frames, ticks, holds, t0) {
 }
 
 // the robot pilot on the joystick fixture (F7's control laws): 'land' from a final, 'takeoff', 'sight'
-const ROBOT = (mode) => {
+export const ROBOT = (mode) => {
   const g = window.__sfo, pad = window.__pad, TP = g.tools.TestPilot, D = Math.PI / 180, FT = 0.3048;
   const R = g.W.runways.find((r) => r.id === '28R'), u = [Math.cos(R.crs * D), Math.sin(R.crs * D)], rt = [-u[1], u[0]], thrH = g.W.ils.find((i) => i.id === '28R').thrH;
   const st = window.__robot = { phase: { land: 'final', takeoff: 'roll', sight: 'bank' }[mode], brakes: false, log: [], done: false };
