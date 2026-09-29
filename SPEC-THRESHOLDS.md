@@ -79,3 +79,14 @@ the military standard; Level 1 is required for damping, Level 2 is the floor for
 - `F6.frameTriangles`: 2354038 — triangles per frame, all passes, same flight; measured max 1883230 (ring 810094) on 2026-09-28; cap = 1.25 × measured
 - `F6.frameDraws`: 378 — draw calls per frame, same flight; measured max 252 on 2026-09-28; cap = 1.5 × measured
 - `F6.gpuMemoryMB`: 1145 — peak GPU memory (footprint "(graphics)" categories) of the App process over the flight; measured 916 MB on 2026-09-28; cap = 1.25 × measured
+
+## AUTO LAND + GUIDE ME (F10) — frozen 2026-09-29 from SPEC §14, before F10 first ran
+- `F10.autoScoreMin`: 80 — AUTO LAND from each of the 8 starts × both aircraft × 2 winds: landing score at least
+- `F10.guideScoreMin`: 70 — GUIDE ME flown by the obedient pilot from the same starts: landing score at least
+- `F10.leadMinS`: 3 — every planned GUIDE ME instruction shows at least this long before the route needs it
+- `F10.bankWarnLeadS`: 2 — BANK ANGLE shows at least this long before a touchdown beyond the pod margin
+- `F10.ribbonM`: 1 — glide-slope ribbon centre from the computed ILS path at 5 sample points, m
+- `F10.ribbonInsideFt`: 200 — the aircraft stays inside the ribbon corridor down to this radio height
+- `F10.takeoverFrames`: 1 — stick input during AUTO LAND disconnects within this many frames
+- `F10.terrainClearFt.b77w`: 1000 — planned route (before the final approach) above terrain and roofs within the corridor
+- `F10.terrainClearFt.c172`: 500

@@ -86,3 +86,37 @@ html.is-touch .sf-check { left: 12px; right: 72px; top: auto; bottom: 212px; wid
 html.is-touch .ck-text { font-size: 14px; }
 html.is-touch .ck-list { display: flex; gap: 4px; margin: 4px 0 0; } html.is-touch .ck-list li span { display: none; }
 @media (max-width: 640px) { .sf-grid, .sf-missions { grid-template-columns: 1fr; } .sf-card h1 { font-size: 22px; } .sf-msg { font-size: 20px; } }
+/* M1.2: AUTO LAND / GUIDE ME */
+.sf-autobar { position: absolute; top: 56px; right: 16px; display: flex; gap: 6px; pointer-events: auto; }
+.sf-autobar[hidden] { display: none; }
+.sf-autobar button { height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(227,107,224,.6); background: rgba(12,16,22,.78); color: #e9d6ff; font: 700 12px/1 'Inter', system-ui, sans-serif; letter-spacing: .04em; cursor: pointer; touch-action: none; }
+.sf-autobar button.on, .sf-btns button.sf-auto.on { color: #fff; background: #8a2f87; border-color: #e36be0; }
+.sf-btns button.sf-auto { min-width: 116px; font-size: 12px; }
+html.is-touch .sf-autobar { display: none !important; }
+.sf-guide { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(34vh + 16px); width: min(620px, calc(100vw - 120px)); box-sizing: border-box; padding: 10px 14px; border-radius: 12px; background: rgba(12,16,22,.88); border: 2px solid #e36be0; pointer-events: auto; cursor: pointer; text-align: center; }
+.sf-root.view-out .sf-guide { bottom: 116px; }
+.sf-guide[hidden], .sf-cap[hidden], .sf-assist[hidden], .sf-ils[hidden], .sf-cue[hidden], .sf-guide p[hidden] { display: none; }
+.gd-main { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.gd-main b { font: 800 22px/1.2 'Inter', system-ui, sans-serif; color: #fff; }
+.gd-main i { font: 800 20px/1 'JetBrains Mono', ui-monospace, monospace; font-style: normal; color: #e36be0; min-width: 28px; }
+.gd-main i:empty { display: none; }
+.gd-main.now b { color: #ffcf5a; } .gd-main.warn b { color: #ff4b3e; }
+.sf-guide p { margin: 4px 0 0; font: 600 13px/1.3 'Inter', system-ui, sans-serif; opacity: .75; }
+.sf-cap { position: absolute; top: calc(22% + 44px); left: 50%; transform: translateX(-50%); padding: 6px 14px; border-radius: 8px; background: rgba(12,16,22,.7); font: 700 16px/1.2 'Inter', system-ui, sans-serif; color: #7fffb0; letter-spacing: .04em; white-space: nowrap; }
+.sf-assist { position: absolute; top: 56px; left: 16px; padding: 6px 10px; border-radius: 8px; background: rgba(12,16,22,.82); border: 1px solid #3ad06a; font: 700 12px/1.3 'JetBrains Mono', ui-monospace, monospace; color: #7fffb0; max-width: calc(100vw - 120px); }
+.sf-ils { position: absolute; right: 76px; top: 38%; width: 132px; height: 132px; border-radius: 10px; background: rgba(12,16,22,.7); }
+.ils-loc { position: absolute; left: 16px; right: 16px; bottom: 12px; height: 14px; border-top: 2px solid rgba(255,255,255,.5); background: repeating-linear-gradient(90deg, transparent 0 24px, rgba(255,255,255,.6) 24px 26px); background-position: 25px 0; }
+.ils-gs { position: absolute; top: 12px; bottom: 34px; right: 14px; width: 14px; border-left: 2px solid rgba(255,255,255,.5); }
+.ils-loc i, .ils-gs i { position: absolute; width: 12px; height: 12px; background: #e36be0; transform-origin: center; }
+.ils-loc i { left: calc(50% - 6px); top: -8px; } .ils-gs i { top: calc(50% - 6px); left: -8px; }
+.ils-loc i::after, .ils-gs i::after { content: ''; position: absolute; inset: 0; background: inherit; transform: rotate(45deg); }
+.sf-ils small { position: absolute; left: 10px; top: 8px; font: 700 12px/1 'JetBrains Mono', ui-monospace, monospace; color: #e36be0; }
+.sf-cue { position: absolute; left: -16px; top: -16px; width: 32px; height: 32px; }
+.sf-cue i { position: absolute; inset: 0; border: 3px solid #e36be0; border-radius: 50%; box-shadow: 0 0 8px rgba(227,107,224,.8); }
+.sf-cue.edge i { border-radius: 0; border: none; width: 0; height: 0; inset: auto; left: 4px; top: 4px; border-left: 14px solid transparent; border-right: 14px solid transparent; border-bottom: 24px solid #e36be0; }
+.sf-why { margin: 4px 0 8px; font-size: 15px; line-height: 1.4; }
+html.is-touch .sf-guide { bottom: 172px; left: 12px; right: 72px; width: auto; transform: none; padding: 6px 10px; }
+html.is-touch .gd-main { gap: 8px; } html.is-touch .gd-main b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; } html.is-touch .gd-main i { font-size: 13px; flex: none; } html.is-touch .sf-guide p { display: none; }
+html.is-touch .sf-cap { top: auto; bottom: 216px; font-size: 13px; }
+html.is-touch .sf-ils { right: 4px; top: 290px; width: 52px; height: 100px; } html.is-touch .ils-loc { left: 6px; right: 18px; } html.is-touch .ils-gs { right: 4px; } html.is-touch .sf-ils small { display: none; }
+html.is-touch .sf-assist { top: 34px; left: 12px; max-width: calc(100vw - 84px); padding: 1px 6px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -3,10 +3,21 @@
 // lights, PAPI, the ALSF-2 on 28R and MALSR on 28L over the bay on their piers). Lights are instanced cubes that
 // the vertex shader scales with distance, so they stay visible as points from the tower or 5 miles out, and
 // glow brighter at night (frame.night). Geometry in the title frame: x east, z south, y up (m above local MSL).
-import { BufferGeometry, BufferAttribute, BoxGeometry, Color, Group, InstancedMesh, Matrix4, Mesh, Vector3 } from 'harbor-engine/src/engine/index.js';
+// M1.2: the approach lights, their sequenced flashers ("rabbit") and the PAPI are their own meshes: `approach.
+// setBoost(b)` lights them up for AUTO LAND / GUIDE ME in any time of day, and `approach.update(eye)` sets each PAPI
+// box white or red from the eye's elevation angle (papiRead, the one rule the page and gate F10 share).
+import { BufferGeometry, BufferAttribute, BoxGeometry, Color, Group, InstancedMesh, Matrix4, Mesh, Vector2, Vector3 } from 'harbor-engine/src/engine/index.js';
 import { Material } from 'harbor-engine';
 
-const FT = 0.3048;
+const FT = 0.3048, D = Math.PI / 180;
+
+// PAPI: four boxes left of the runway at the glide path's origin (TCH / tan θ past the threshold), numbered from the
+// runway edge outward, set at θ + 0.5°, + 0.17°, − 0.17°, − 0.5° (FAA AC 150/5345-28): a box shows white when the eye
+// is above its setting. On the path: the two inner red, the two outer white; low: all red; high: all white.
+export const PAPI_SETTINGS = [0.5, 1 / 6, -1 / 6, -0.5];
+export function papiRead(eye, unit) {
+  return unit.boxes.map((b, k) => { const dx = eye[0] - b[0], dz = eye[2] - b[2], el = Math.atan2(eye[1] - b[1], Math.hypot(dx, dz)) / D; return el > unit.gsDeg + PAPI_SETTINGS[k] ? 'W' : 'R'; });
+}
 import { RUNWAY_LIFT } from '../../fdm/world.ts';
 const LIFT = RUNWAY_LIFT; // pavement above the terrain surface (the terrain mesh morphs by a few centimetres); the flight model rolls on it
 
@@ -49,6 +60,7 @@ export function buildAirfield(airport, heightAt) {
   const hAt = (x, z) => heightAt(x, z) + LIFT, hMark = (x, z) => heightAt(x, z) + LIFT + 0.04;
   const aP = [], aN = [], aI = [], mP = [], mN = [], mI = [];
   const lights = { white: [], red: [], green: [], amber: [], blue: [] };
+  const als = { white: [], red: [] }, flashers = [], papis = []; // the approach set (M1.2)
   const light = (c, x, z, y = null) => lights[c].push([x, y ?? heightAt(x, z) + 0.6, z]);
   const piers = [];
   for (const rw of airport.runways) {
@@ -90,8 +102,12 @@ export function buildAirfield(airport, heightAt) {
       for (let ww = - w / 2 + 3; ww <= w / 2 - 3; ww += 3) { const e = [ref0[0] + dir[0] * (L + 1), ref0[1] + dir[1] * (L + 1)]; light('red', e[0] + r[0] * ww, e[1] + r[1] * ww); }
       // touchdown zone barrettes (3 lights) every 30 m for 900 m, ILS runways
       if (E.ils) for (let s = 30; s <= 900 && s < lda; s += 30) for (const side of [- 1, 1]) for (let k = 0; k < 3; k++) light('white', thr[0] + dir[0] * s + r[0] * side * (11 + k * 1.5), thr[1] + dir[1] * s + r[1] * side * (11 + k * 1.5));
-      // PAPI: four lights left of the runway at 300 m (2 white, 2 red as seen on the glidepath)
-      if (E.ils) for (let k = 0; k < 4; k++) light(k < 2 ? 'red' : 'white', thr[0] + dir[0] * 300 - r[0] * (w / 2 + 15 + k * 9), thr[1] + dir[1] * 300 - r[1] * (w / 2 + 15 + k * 9));
+      // PAPI: four boxes left of the runway at the glide path's origin (see papiRead)
+      if (E.ils) {
+        const gs = E.gsDeg ?? 3, at = (E.tchFt ?? 50) * FT / Math.tan(gs * D), boxes = [];
+        for (let k = 0; k < 4; k++) { const x = thr[0] + dir[0] * at - r[0] * (w / 2 + 15 + k * 9), z = thr[1] + dir[1] * at - r[1] * (w / 2 + 15 + k * 9); boxes.push([x, heightAt(x, z) + 0.9, z]); }
+        papis.push({ id: E.id, gsDeg: gs, boxes });
+      }
       // approach lighting over the bay: ALSF-2 (28R) 2400 ft, MALSR (28L) 1400 ft + RAIL to 2400 ft, on a pier
       if (E.approachLights) {
         const alsf = E.approachLights === 'ALSF2', back = [- dir[0], - dir[1]];
@@ -101,14 +117,18 @@ export function buildAirfield(airport, heightAt) {
         const onPave = disp + 10;
         const yAt = (s, p) => (s < onPave ? heightAt(p[0], p[1]) + 0.45 : pierY);
         const L = (list, s, p) => list.push([p[0], yAt(s, p), p[1]]);
+        // sequenced flashers: ALSF-2 one per station 1,000–2,400 ft, MALSR's RAIL 1,600–2,400 ft
+        const fl = { id: E.id, thr: [thr[0], thr[1]], back, s0: (alsf ? 1000 : 1600) * FT, s1: 2400 * FT, list: [] };
         for (let ft = 100; ft <= 2400; ft += alsf ? 100 : 200) {
           const s = ft * FT;
-          if (alsf || ft <= 1400) for (let k = - 2; k <= 2; k++) L(lights.white, s, at(s, k * 1.1));
-          else L(lights.white, s, at(s, 0)); // RAIL
-          if (alsf && ft <= 900) for (const side of [- 1, 1]) for (let k = 0; k < 3; k++) L(lights.red, s, at(s, side * (9 + k * 1.1)));
-          if (ft === 1000) for (let ww = - 15; ww <= 15; ww += 1.5) L(lights.white, s, at(s, ww));
-          if (ft === 500 && alsf) for (let ww = - 10; ww <= 10; ww += 1.5) L(lights.white, s, at(s, ww));
+          if (alsf || ft <= 1400) for (let k = - 2; k <= 2; k++) L(als.white, s, at(s, k * 1.1));
+          else L(als.white, s, at(s, 0)); // RAIL
+          if (alsf && ft <= 900) for (const side of [- 1, 1]) for (let k = 0; k < 3; k++) L(als.red, s, at(s, side * (9 + k * 1.1)));
+          if (ft === 1000) for (let ww = - 15; ww <= 15; ww += 1.5) L(als.white, s, at(s, ww));
+          if (ft === 500 && alsf) for (let ww = - 10; ww <= 10; ww += 1.5) L(als.white, s, at(s, ww));
+          if (s >= fl.s0 - 1) { const p = at(s, 0); fl.list.push([p[0], yAt(s, p) + 0.5, p[1]]); }
         }
+        flashers.push(fl);
         if (onPave + 5 < 2400 * FT) piers.push({ from: at(onPave + 5, 0), to: at(2400 * FT + 5, 0), y: pierY - 0.8, dir: back, r });
       }
     }
@@ -165,6 +185,47 @@ export function buildAirfield(airport, heightAt) {
     group.add(im);
     count += list.length;
   }
-  group.userData = { lights: count, piers: piers.length };
+  // ---- the approach set: ALS (boostable), the rabbit, the PAPI (colours from the eye, per frame)
+  const boostMats = [];
+  const lightMat = (name, col, extraU = {}, vtx = '') => {
+    const m = new Material({ name, color: new Color(...col), roughness: 0.4, metalness: 0, uniforms: { lens: ['f32', 1], boost: ['f32', 0], ...extraU },
+      vertex: /* wgsl */`
+	let centre = v.model[ 3 ].xyz;
+	let d = distance( centre, frame.cameraPos );
+	var k = clamp( d / 420.0 * mat.lens, 1.0, 50.0 ) * ( 1.0 + 0.8 * mat.boost );
+	${vtx}
+	v.position = v.position * k;`,
+      surface: /* wgsl */`
+	s.emissive = s.albedo * in.color.rgb * ( 2.5 + 14.0 * frame.night + 40.0 * mat.boost );
+	s.albedo = s.albedo * 0.25;` });
+    boostMats.push(m); return m;
+  };
+  const inst = (list, mat, name) => { const im = new InstancedMesh(cube, mat, list.length); list.forEach(([x, y, z], i) => im.setMatrixAt(i, m.makeTranslation(x, y, z))); im.frustumCulled = false; im.name = name; group.add(im); count += list.length; return im; };
+  for (const c of ['white', 'red']) if (als[c].length) inst(als[c], lightMat('als-' + c, COL[c]), 'als-' + c);
+  // the rabbit: one flash runs from the far end to the inner end twice a second, lit only when boosted or at night
+  for (const fl of flashers) {
+    const mat = lightMat('als-flash-' + fl.id, [1, 1, 1], { thr: ['vec2f', new Vector2(...fl.thr)], back: ['vec2f', new Vector2(...fl.back)], s0: ['f32', fl.s0], s1: ['f32', fl.s1], n: ['f32', fl.list.length] }, /* wgsl */`
+	let sAlong = dot( centre.xz - mat.thr, mat.back );
+	let pos = clamp( ( mat.s1 - sAlong ) / max( mat.s1 - mat.s0, 1.0 ), 0.0, 1.0 ); // 0 far … 1 inner
+	let ph = fract( frame.time * 2.0 );
+	let on = select( 0.0, 1.0, abs( ph - pos ) < 0.5 / max( mat.n - 1.0, 1.0 ) + 0.01 ) * max( mat.boost, frame.night );
+	k = k * 2.2 * on;`);
+    inst(fl.list, mat, 'als-flash-' + fl.id);
+  }
+  const papiList = papis.flatMap((u) => u.boxes);
+  const papiMesh = papiList.length ? inst(papiList, lightMat('papi', [1, 1, 1]), 'papi') : null;
+  const white = new Color(1, 0.96, 0.85), red = new Color(1, 0.12, 0.06);
+  const approach = {
+    papis, flashers, boost: 0, papiState: {},
+    setBoost(b) { this.boost = b; for (const mt of boostMats) mt.uniforms.boost.value = b; },
+    update(eye) {
+      if (!papiMesh) return;
+      let i = 0;
+      for (const u of papis) { const rd = papiRead(eye, u); this.papiState[u.id] = rd.join(''); for (const c of rd) papiMesh.setColorAt(i++, c === 'W' ? white : red); }
+      papiMesh.instanceColor.needsUpdate = true;
+    },
+  };
+  approach.update([0, 1e4, 0]);
+  group.userData = { lights: count, piers: piers.length, approach };
   return group;
 }

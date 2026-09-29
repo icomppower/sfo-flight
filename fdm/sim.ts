@@ -36,12 +36,13 @@ export interface Controls {
   autobrake: number; // 0 off, 1..5 (5 = MAX), 6 = RTO (MAX braking when the levers close above 85 kt on the ground)
   mixture: number; mags: number; starter: number; master: number; // piston: 0..1, 0/1, 0/1, 0/1
   ap: number; // MCP event this step (fdm/autopilot.ts AP_EVENT), 0 = none
+  auto: number; // AUTO LAND event this step (fdm/autoland.ts AUTO_EVENT), 0 = none
   mcpHdg: number; mcpAlt: number; mcpVs: number; mcpSpd: number; // deg true, ft, fpm, KIAS
 }
 export function neutralControls(ac: AircraftData): Controls {
   const n = ac.engine.kind === 'turbofan' ? (ac.engine as FanDef).count : 1;
   return { elev: 0, ail: 0, rud: 0, thr: new Array(n).fill(0), flap: 0, gear: 1, brakeL: 0, brakeR: 0, park: 0, spoiler: 0, trim: 0, trimSet: 0, trimTgt: 0, tiller: 0, autobrake: 0,
-    mixture: 1, mags: 1, starter: 0, master: 1, ap: 0, mcpHdg: 0, mcpAlt: 0, mcpVs: 0, mcpSpd: 0 };
+    mixture: 1, mags: 1, starter: 0, master: 1, ap: 0, auto: 0, mcpHdg: 0, mcpAlt: 0, mcpVs: 0, mcpSpd: 0 };
 }
 
 export interface Weather { wind: WindSpec; visM: number; qnhHpa: number; tempC: number }
@@ -88,7 +89,7 @@ export class Sim {
   gearLoad: number[]; onGround = false; stall = false; ydWash = 0; ydOut = 0; autobrakeCmd = 0; abDecel = 0; rtoArmed = false;
   vRef = 0; gRef = 0; uOut = 0; // heavy FBW: trim reference speed (kt) and flight path (rad), and the elevator term (rad)
   // events
-  crashed: CrashReason | null = null; crashT = 0; tailstrike = false; touchdowns: TouchdownEvent[] = []; airborneT = 0; maxNz = 1;
+  crashed: CrashReason | null = null; crashT = 0; crashInfo: { bank: number; pitch: number; sinkFpm: number; nz: number; cas: number; part: string } | null = null; tailstrike = false; touchdowns: TouchdownEvent[] = []; airborneT = 0; maxNz = 1;
   surfaceUnder = SURF.PAVED; lastVs = 0;
   private _prevAlpha = 0;
   private _brk: number[];
@@ -372,7 +373,7 @@ export class Sim {
     this.onGround = any;
   }
 
-  crash(r: CrashReason): void { if (!this.crashed) { this.crashed = r; this.crashT = this.t; this.vel = [0, 0, 0]; this.w = [0, 0, 0]; } }
+  crash(r: CrashReason): void { if (!this.crashed) { const e = this.euler; this.crashInfo = { bank: e.phi / DEG, pitch: e.theta / DEG, sinkFpm: this.vel[2] / FT * 60, nz: this.nz, cas: this.cas, part: r }; this.crashed = r; this.crashT = this.t; this.vel = [0, 0, 0]; this.w = [0, 0, 0]; } }
 
   // forces, moments, integration; `init` evaluates without advancing time
   private update(c: Controls, init: boolean): void {

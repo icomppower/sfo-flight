@@ -8,7 +8,7 @@ const KT = 0.514444;
 // ctx (flight.js ctxOf): t (sim s), sim, ap, thrEff (0..1, the levers the engines get), mcpOn, camMoved, onGround,
 // aglFt, cas, phiDeg, altFt, xteM / hdgErr / gsDots (to the mission runway), touchdown, stopped, toCfg (bool)
 export const MISSIONS = [
-  { id: 1, ac: 'b77w', start: 'final9', rwy: '28R', time: 'golden', wx: 'westerly', startCfg: 'landing', steps: [
+  { id: 1, ac: 'b77w', start: 'final9', rwy: '28R', time: 'golden', wx: 'westerly', startCfg: 'landing', guide: true, steps: [
     { id: 'panel', hint: 'apPanel', cond: (x) => x.mcpOn },
     { id: 'at', hint: 'clickAT', cond: (x) => !!x.ap?.at },
     { id: 'ap', hint: 'clickAP', cond: (x) => !!x.ap?.on },
@@ -17,7 +17,7 @@ export const MISSIONS = [
     { id: 'touch', hint: 'none', cond: (x) => x.touchdown },
     { id: 'stop', hint: 'none', cond: (x) => x.stopped },
   ] },
-  { id: 2, ac: 'c172', start: 'final3', rwy: '28R', time: 'day', wx: 'calm', steps: [
+  { id: 2, ac: 'c172', start: 'final3', rwy: '28R', time: 'day', wx: 'calm', guide: true, steps: [
     { id: 'centre', hint: 'roll', hold: 3, cond: (x) => Math.abs(x.xteM) < 40 && Math.abs(x.hdgErr) < 10, live: (x) => `${Math.abs(Math.round(x.xteM))} m ${x.xteM > 0 ? 'R' : 'L'}` },
     { id: 'path', hint: 'pitch', hold: 5, cond: (x) => x.cas >= 58 && x.cas <= 78 && Math.abs(x.gsDots) < 1.5, live: (x) => `${Math.round(x.cas)} kt · ${x.gsDots > 0.5 ? '▲ high' : x.gsDots < -0.5 ? '▼ low' : '● on path'}` },
     { id: 'idle', hint: 'thrIdle', cond: (x) => x.aglFt < 100 && x.thrEff <= 0.1, live: (x) => `${Math.round(x.aglFt)} ft · ${Math.round(x.thrEff * 100)} %` },

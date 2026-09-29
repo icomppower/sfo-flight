@@ -1,8 +1,9 @@
-// One flight: the Sim plus the heavy's autopilot, the landing scorer, the replay recorder and the hash — the loop
+// One flight: the Sim plus the heavy's autopilot, AUTO LAND, the landing scorer, the replay recorder and the hash — the loop
 // the page runs 120 times a second and the loop a replay re-runs, identically.
 import { Sim, type Controls, type Start, type Weather, type Ground, neutralControls } from './sim.ts';
 import { trimFly } from './pilot.ts';
 import { Autopilot } from './autopilot.ts';
+import { AutoLand } from './autoland.ts';
 import { Scorer, type RunwayEnd } from './score.ts';
 import { Recorder, Hasher, quantize, type Log } from './replay.ts';
 import type { IlsDef } from './ils.ts';
@@ -11,7 +12,7 @@ import type { AircraftData } from './aircraft/types.ts';
 export interface World { ground?: Ground; ils: IlsDef[]; runways: RunwayEnd[] }
 
 export class Flight {
-  sim: Sim; ap: Autopilot | null; initial: Controls; scorer: Scorer; rec: Recorder; hash = new Hasher(); applied: Controls;
+  sim: Sim; ap: Autopilot | null; auto: AutoLand; initial: Controls; scorer: Scorer; rec: Recorder; hash = new Hasher(); applied: Controls;
   ac: AircraftData; start: Start; weather: Weather; seed: string; world: World;
   constructor(ac: AircraftData, start: Start, weather: Weather, seed: string, world: World) {
     this.ac = ac; this.start = start; this.weather = weather; this.seed = seed; this.world = world;
@@ -26,6 +27,7 @@ export class Flight {
     } else if (start.engineOn === false) { this.initial.mixture = 0; this.initial.mags = 0; this.initial.master = 0; }
     if (start.alt == null && start.park) this.initial.park = 1;
     this.ap = ac.engine.kind === 'turbofan' ? new Autopilot(world.ils) : null;
+    this.auto = new AutoLand(ac, this.ap, world.ils, world.ground ?? null, { dir: weather.wind.dir, kt: weather.wind.kt, gustKt: weather.wind.gustKt });
     this.scorer = new Scorer(world.runways);
     this.rec = new Recorder(ac, start, weather, seed, this.initial);
     this.applied = neutralControls(ac);
@@ -35,8 +37,13 @@ export class Flight {
     this.rec.add(pilot);
     const c = this.applied;
     Object.assign(c, pilot); c.thr = pilot.thr.slice();
+    const autoWas = this.auto.on;
+    this.auto.apply(this.sim, c, pilot);
     if (this.ap) this.ap.apply(this.sim, c);
     this.sim.step(c);
+    // what AUTO LAND set stays set when it lets go: handed back into the pilot's controls (and into the recorder's
+    // reference, since a replay re-runs this hand-back itself)
+    if (this.auto.on || autoWas) { this.auto.handBack(pilot, c); this.rec.sync(pilot); }
     this.scorer.update(this.sim);
     if (this.sim.steps % 120 === 0) this.hash.add(this.sim);
   }

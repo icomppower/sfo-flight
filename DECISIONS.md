@@ -130,3 +130,56 @@ lands with no input after A/T, A/P and APP; §11 already said the spoilers and a
 step ticks as soon as APP captures the glide slope, because the start is on the glide path. LANDING CONFIG over the
 Golden Gate on its default heading (145°) is inside 10L's window (8.9 NM, 28° off), so F9 tests the outside case on
 a 325° heading there (a `startOver` fixture on the start).
+
+## D22 — M1.2 AUTO LAND: one route brain, two pilots (2026-09-29)
+The route manager (`fdm/route.ts`) plans from wherever the aircraft is to the SFO ILS in use: 28L/28R unless the
+tailwind on them exceeds 5 kt (then the ILS end with the most headwind), the nearer centreline of the pair. Legs: a
+heading leg to a base point, a 30° intercept to a join point on the extended centreline (FAF + 3 NM 777 / + 1.5 NM
+172), the FAF (10 NM / 4 NM), the threshold. Too high or too fast → the join point moves out until the descent (2.5° /
+3°) and the idle deceleration fit. Each leg before the FAF gets a minimum safe altitude from the terrain and roof grid
+in a ±900 m / ±400 m corridor + 1,000 / 500 ft. AUTO LAND runs inside `Flight.step` from a recorded control (`auto`),
+so replays re-fly it; what it sets (flaps, gear, spoilers, autobrake, MCP, throttle) is handed back into the pilot's
+controls every step, so a takeover keeps it. The 777 flies through its own autopilot modes (HDG / V/S / ALT / SPD,
+APP on the intercept) with the planned runway's ILS fixed (`ilsFix`: the parallel 28L would otherwise capture from
+the south). The C172 has no autopilot: AUTO LAND uses a **GAME ASSIST** (`fdm/assist.ts`), labelled so on screen —
+the scripted pilot's control laws with modes, captures, a flare to a 4° touchdown attitude and rollout braking.
+
+## D23 — M1.2 tuning that is AUTO LAND's own (2026-09-29)
+The M1 autopilot's defaults are untouched (F4 / F7 / F9 fly them); AUTO LAND sets its own while it flies: flare at
+60 ft (50 ft left gusty 280/15G22 touchdowns near 560 fpm), a soft 7° flare pitch cap (the -300ER's tail strikes near
+9°), no pitching below the flare's starting attitude (a float was being pushed onto the runway), a slower flare
+integrator and more pitch damping, the bank limit below 300 ft at the pod margin − 2.5°. Approach speed: 777 Vref30 +
+max(5, ½ headwind + gust) ≤ 20 (Boeing's additive); 172 65 KIAS + the full gust factor ≤ 10 (the POH's half left
+touchdowns near the stall in the model's gusts). GUIDE ME is on by default for the two landing missions (① ②);
+③ (take-off) and ④ (sightseeing) would be told to land, against their own checklists.
+
+## D24 — M1.2 pod margin, BANK ANGLE and crash words (2026-09-29)
+Pod margin = the bank at which the first nacelle (or wingtip) reaches the runway with that side's main strut fully
+compressed and zero pitch, from the aircraft's own contact geometry: 777 7.6° (nacelle), 172 27° (wingtip). BANK
+ANGLE shows below 100 ft radio when the bank exceeds it; GUIDE ME says "Level the wings". The result screen says why
+in plain words with the number from the moment of the crash (`Sim.crashInfo`: bank, pitch, sink, g, speed).
+
+## D25 — M1.2 GUIDE ME timing (2026-09-29)
+Each planned instruction is found by looking 0–12 s ahead along the route (moving parallel to the active leg, then
+fix to fix) and shows as soon as it is due inside that window, with a countdown; the moment the route itself needs it
+(its own "now") is recorded separately, and gate F10 measures the lead against that. Instructions that nobody can
+foresee — the first ones on engaging, a heading correction for drift, anything a re-plan needs at once — are
+reactive: they get a 4 s countdown and are counted, not lead-checked. The obedient pilot in F10 acts only on the bar:
+the 172 with the scripted pilot's hands, the 777 through a private MCP (how a crew flies spoken vectors). The
+heavy's "Idle — flare now" is due at 50 ft (it needs its flare begun that high in this model), the 172's at 15 ft.
+
+## D26 — M1.2 page (2026-09-29)
+Keys: Shift+L AUTO LAND (L stays LANDING CONFIG), Shift+G GUIDE ME (G stays gear), V the ribbon (the engine's V is
+the walking player's camera, unused here). On screen: AUTO LAND / GUIDE ME next to the config buttons (desktop) or in
+the phone button block. The ribbon, localizer line and route line are unlit, premultiplied, depth-writing overlays
+(the engine's water and sky passes composite by depth: without depth they vanished outside the aircraft's pixels) and
+dim at night. Approach lights, their flashers and the PAPI are separate meshes: boosted for AUTO LAND / GUIDE ME at
+any time of day; the rabbit runs twice a second from the far end; each PAPI box is white or red from the eye's
+elevation angle (settings θ ± 0.5° / ± 0.17°, boxes moved from 300 m to the glide path's origin so on-path reads
+2 white / 2 red). `?timescale=n` runs n× the fixed steps per frame (gate hook, same flight).
+
+## D27 — F6 runs first, on a quiet GPU (2026-09-29)
+The M4 is shared with other Claude sessions; their headless-Chromium gate runs cut F6's frame rate 2.5× (A/B: the
+unchanged M1.1 commit read 18.9 fps under that load, 49.8 fps the day before). `gates/gates.json` lists f6 first so
+the frame-budget measurement happens at the start of the run, inside an agreed quiet window. M1.2 adds 12 draws (the
+split approach lights, flashers, PAPI) — 264 of the 378 cap.

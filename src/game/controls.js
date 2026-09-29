@@ -33,7 +33,7 @@ export class PilotInput {
       if (e.repeat || (e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName))) return;
       const sh = e.shiftKey;
       this.kind = 'kb';
-      const act = { KeyF: sh ? 'flapUp' : 'flapDown', KeyG: 'gear', Slash: 'spoiler', KeyC: 'camera', KeyH: 'hud', Escape: 'menu', KeyR: 'replay', KeyP: 'pause', KeyT: sh ? 'toga' : 'toCfg', KeyL: 'ldgCfg' }[e.code]
+      const act = { KeyF: sh ? 'flapUp' : 'flapDown', KeyG: sh ? 'guide' : 'gear', Slash: 'spoiler', KeyC: 'camera', KeyH: 'hud', Escape: 'menu', KeyR: 'replay', KeyP: 'pause', KeyT: sh ? 'toga' : 'toCfg', KeyL: sh ? 'autoLand' : 'ldgCfg', KeyV: 'ribbon' }[e.code]
         || (sh && e.code === 'KeyA' ? 'apPanel' : sh && e.code === 'KeyB' ? 'park' : sh && e.code === 'KeyE' ? 'startEngine' : null);
       if (act) this.press(act);
       if (e.code === 'KeyY') { this.yoke = !this.yoke; this.press('yoke'); }

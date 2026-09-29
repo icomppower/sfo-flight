@@ -15,11 +15,16 @@ export class Autopilot {
   on = false; at = false; lat: Lat = 'ROLL'; vert: Vert = 'PITCH'; locArm = false; gsArm = false;
   ils: IlsDef[]; ilsSel: IlsDef | null = null; dev: IlsDev | null = null;
   thetaCmd = 0; alphaLp = 0; gI = 0; nzF = 1; nzI = 0; kGam = 0.5; kNz = 3.5; kNzI = 1.5; kQ = 6; kAt = 0.035; gsKmax = 3; kLoc = 0.0035; kLocD = 0.02; kGs = 0.003; flareMin = 0.6; kFlareGam = 0.525; spdF = 0; thrI = 0; thr = 0.5; flareSink = 0; flareTheta = 0; retard = false; altCapT = 0; disconnectReason = '';
+  // AUTO LAND (fdm/autoland.ts) sets these while it flies: the planned runway's ILS, the bank limit below 300 ft, the
+  // flare height (ft), pitch cap (deg) and the flare's inner-loop gains; bankBiasLow is a gate F10 fixture
+  ilsFix: IlsDef | null = null; bankLow = 8; flareFt = 50; flarePitchMax = 99; bankBiasLow = 0;
+  flareGdot = 0.05; flKNzI = 0.5; flKQ = 8;
   private _d = {} as IlsDev;
   constructor(ils: IlsDef[]) { this.ils = ils; }
 
   // the ILS tuned: the runway end whose localizer the aircraft is best aligned with (within 35° and 25 NM)
   tune(s: Sim): IlsDef | null {
+    if (this.ilsFix) return this.ilsFix;
     let best: IlsDef | null = null, bestScore = 1e9;
     const hdg = (s.euler.psi / DEG + 360) % 360;
     for (const I of this.ils) {
@@ -75,7 +80,7 @@ export class Autopilot {
     if (this.gsArm && d && this.lat === 'LOC' && d.gsDots < 0.3 && d.gsDots > -1.2) { this.vert = 'GS'; this.gsArm = false; }
     if ((this.vert === 'VS' || this.vert === 'PITCH') && Math.abs(c.mcpAlt * FT - s.altMsl) < Math.max(60, Math.abs(s.vel[2]) * 6)) { this.vert = 'ALT*'; this.altCapT = 0; }
     if (this.vert === 'ALT*') { this.altCapT += DT; if (Math.abs(c.mcpAlt * FT - s.altMsl) < 8 && Math.abs(s.vel[2]) < 1) this.vert = 'ALT'; }
-    if (this.vert === 'GS' && radAlt < 50 * FT && !s.onGround) { this.vert = 'FLARE'; this.flareSink = Math.max(1.5, -(-s.vel[2])); this.flareTheta = e.theta; }
+    if (this.vert === 'GS' && radAlt < this.flareFt * FT && !s.onGround) { this.vert = 'FLARE'; this.flareSink = Math.max(1.5, -(-s.vel[2])); this.flareTheta = e.theta; }
     if (this.vert === 'FLARE' && radAlt < 25 * FT) this.retard = true;
     if (s.onGround && (this.vert === 'FLARE' || this.lat === 'LOC')) { this.lat = 'ROLLOUT'; }
     // ---- lateral
@@ -87,7 +92,7 @@ export class Autopilot {
       const xteRate = -D.sin(this.ilsSel.crs * DEG) * s.vel[0] + D.cos(this.ilsSel.crs * DEG) * s.vel[1];
       const want = this.ilsSel.crs * DEG + clamp(-d.xte * this.kLoc - xteRate * this.kLocD, -0.5, 0.5);
       phCmd = clamp(wrap180((want - trk) / DEG) * DEG * 1.6, -25 * DEG, 25 * DEG);
-      if (radAlt < 300 * FT) phCmd = clamp(phCmd, -8 * DEG, 8 * DEG);
+      if (radAlt < 300 * FT) phCmd = clamp(phCmd + (radAlt < 150 * FT ? this.bankBiasLow * DEG : 0), -this.bankLow * DEG, this.bankLow * DEG);
     }
     if (this.lat === 'ROLLOUT' && this.ilsSel) {
       // on the ground: rudder / nose wheel onto the centreline, wings level; off at taxi speed
@@ -117,7 +122,7 @@ export class Autopilot {
       gCmd = gsGround + clamp(-d.gsErrM * k, -0.04, 0.04);
     } else if (this.vert === 'FLARE') {
       // exponential flare: sink proportional to height, flown through the same load-factor loop
-      const vsCmd = -Math.max(radAlt / (50 * FT) * this.flareSink, this.flareMin);
+      const vsCmd = -Math.max(radAlt / (this.flareFt * FT) * this.flareSink, this.flareMin);
       gCmd = D.asin(clamp(vsCmd / Math.max(Vg, 1), -0.2, 0.2));
     }
     // flight-path loop through a load-factor inner loop (C*-style): γ error → γ̇ command → nz command → elevator.
@@ -128,13 +133,21 @@ export class Autopilot {
     } else if (this.vert === 'PITCH') {
       c.elev = clamp(2.6 * s.w[1], -1, 1);
     } else {
-      const gdot = clamp((gCmd - gamma) * (this.vert === 'FLARE' ? this.kFlareGam : this.kGam), -0.05, 0.05);
-      const nzCmd = D.cos(gamma) / Math.max(0.5, D.cos(e.phi)) + V * gdot / 9.80665;
+      const gl = this.vert === 'FLARE' ? this.flareGdot : 0.05;
+      const gdot = clamp((gCmd - gamma) * (this.vert === 'FLARE' ? this.kFlareGam : this.kGam), -gl, gl);
+      // AUTO LAND's flare limits (flarePitchMax < 90): a soft pitch cap for tail clearance, and no pitching below the
+      // attitude the flare began at (a float is left to settle, not pushed onto the runway; a balloon may lower it 2.5°)
+      const gdotF = this.vert === 'FLARE' && this.flarePitchMax < 90 ? clamp(gdot, (this.flareTheta - (s.vel[2] < 0 ? 2.5 : 1) * DEG - e.theta) * 0.5 - 0.3 * s.w[1], (this.flarePitchMax * DEG - e.theta) * 0.5 - 0.3 * s.w[1]) : gdot;
+      const nzCmd = D.cos(gamma) / Math.max(0.5, D.cos(e.phi)) + V * gdotF / 9.80665;
       const en = nzCmd - this.nzF;
       const sch = clamp(3600 / Math.max(s.qbar, 800), 0.25, 3); // elevator power grows with dynamic pressure
-      this.nzI = clamp(this.nzI + en * this.kNzI * sch * DT, -0.6, 0.6);
-      c.elev = clamp(-(this.kNz * sch * en + this.nzI) + this.kQ * Math.sqrt(sch) * s.w[1], -1, 1);
+      // AUTO LAND's flare (flarePitchMax < 90) with a slower integrator and more pitch damping (gusts)
+      const alFl = this.vert === 'FLARE' && this.flarePitchMax < 90, kNzI = alFl ? this.flKNzI : this.kNzI, kQ = alFl ? this.flKQ : this.kQ;
+      this.nzI = clamp(this.nzI + en * kNzI * sch * DT, -0.6, 0.6);
+      c.elev = clamp(-(this.kNz * sch * en + this.nzI) + kQ * Math.sqrt(sch) * s.w[1], -1, 1);
     }
+    // flare pitch cap (tail clearance): nose-down elevator beyond it
+    if (this.vert === 'FLARE' && e.theta > (this.flarePitchMax + 1) * DEG) c.elev = Math.max(c.elev, clamp((e.theta - (this.flarePitchMax + 1) * DEG) * 12 + s.w[1] * 3, 0, 0.6));
     c.trim = clamp(-c.elev * 6, -1, 1);
     return c;
   }

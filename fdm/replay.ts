@@ -5,7 +5,7 @@
 import { Sim, type Controls, type Start, type Weather, type Ground, neutralControls } from './sim.ts';
 import type { AircraftData } from './aircraft/types.ts';
 
-const KEYS: (keyof Controls)[] = ['elev', 'ail', 'rud', 'flap', 'gear', 'brakeL', 'brakeR', 'park', 'spoiler', 'trim', 'trimSet', 'trimTgt', 'tiller', 'autobrake', 'mixture', 'mags', 'starter', 'master', 'ap', 'mcpHdg', 'mcpAlt', 'mcpVs', 'mcpSpd'];
+const KEYS: (keyof Controls)[] = ['elev', 'ail', 'rud', 'flap', 'gear', 'brakeL', 'brakeR', 'park', 'spoiler', 'trim', 'trimSet', 'trimTgt', 'tiller', 'autobrake', 'mixture', 'mags', 'starter', 'master', 'ap', 'auto', 'mcpHdg', 'mcpAlt', 'mcpVs', 'mcpSpd'];
 const Q = 1024;
 export function quantize(c: Controls): Controls {
   for (const k of KEYS) (c as any)[k] = Math.round((c as any)[k] * Q) / Q;
@@ -28,6 +28,8 @@ export class Recorder {
     for (let i = 0; i < c.thr.length; i++) if (c.thr[i] !== p.thr[i]) { this.log.changes.push([s, 'thr' + i, Math.round(c.thr[i] * Q)]); p.thr[i] = c.thr[i]; }
     this.log.steps++;
   }
+  // the reference the next changes are taken against (after the flight itself changed the pilot's controls)
+  sync(c: Controls): void { for (const k of KEYS) (this.prev as any)[k] = (c as any)[k]; this.prev.thr = c.thr.slice(); }
 }
 
 export class Hasher {

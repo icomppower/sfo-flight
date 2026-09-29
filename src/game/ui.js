@@ -21,11 +21,17 @@ export class GameUI {
       <div class="sf-eng" hidden></div>
       <div class="sf-help"></div>
       <div class="sf-cfg" hidden><button data-cfg="takeoff"></button><button data-cfg="landing"></button><button data-cfg="toga" hidden></button></div>
+      <div class="sf-autobar" hidden><button data-auto="land" class="sf-auto"></button><button data-auto="guide" class="sf-auto"></button></div>
+      <div class="sf-guide" hidden><div class="gd-main"><b></b><i></i></div><p></p><p></p></div>
+      <div class="sf-cap" hidden></div>
+      <div class="sf-assist" hidden></div>
+      <div class="sf-ils" hidden><div class="ils-loc"><i></i></div><div class="ils-gs"><i></i></div><small></small></div>
+      <div class="sf-cue" hidden><i></i></div>
       <div class="sf-check" hidden><div class="ck-head"><small></small><button data-ck="next"></button><button data-ck="hide" aria-label="hide">✕</button></div><ol class="ck-list"></ol><p class="ck-text"></p><p class="ck-live"></p><p class="ck-key"><kbd></kbd></p></div>
       <div class="sf-touch">
         <div class="sf-stick"><i></i></div>
         <div class="sf-thr"><input type="range" min="0" max="100" value="0" aria-label="throttle"></div>
-        <div class="sf-btns"><button data-a="flapUp">F▲</button><button data-a="flapDown">F▼</button><button data-a="gear">GEAR</button><button data-a="brakes">BRK</button><button data-a="camera">CAM</button><button data-a="apPanel">A/P</button><button data-a="menu">☰</button></div>
+        <div class="sf-btns"><button data-a="flapUp">F▲</button><button data-a="flapDown">F▼</button><button data-a="gear">GEAR</button><button data-a="brakes">BRK</button><button data-a="camera">CAM</button><button data-a="apPanel">A/P</button><button data-a="menu">☰</button><button data-a="autoLand" class="sf-auto t-auto"></button><button data-a="guide" class="sf-auto t-guide"></button></div>
       </div>
       <div class="sf-overlay" hidden></div>`;
     document.body.append(root);
@@ -44,6 +50,10 @@ export class GameUI {
     const up = (e) => { if (e.pointerId !== pid) return; pid = null; this.dom.knob.style.transform = ''; this.on.stickEnd?.(); };
     st.addEventListener('pointerup', up); st.addEventListener('pointercancel', up);
     this.dom.cfg = q('.sf-cfg'); this.dom.check = q('.sf-check');
+    this.dom.guide = q('.sf-guide'); this.dom.cap = q('.sf-cap'); this.dom.assist = q('.sf-assist'); this.dom.ils = q('.sf-ils'); this.dom.cue = q('.sf-cue');
+    this.dom.guide.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.on.action?.('guide'); });
+    this.dom.autobar = q('.sf-autobar');
+    this.dom.autobar.addEventListener('pointerdown', (e) => { const b = e.target.closest('button'); if (!b) return; e.preventDefault(); e.stopPropagation(); this.on.action?.(b.dataset.auto === 'land' ? 'autoLand' : 'guide'); });
     this.dom.cfg.addEventListener('pointerdown', (e) => { const b = e.target.closest('button'); if (!b) return; e.preventDefault(); e.stopPropagation(); this.on.config?.(b.dataset.cfg); });
     this.dom.check.addEventListener('pointerdown', (e) => { const b = e.target.closest('button'); if (!b) return; e.preventDefault(); e.stopPropagation(); this.on.checklist?.(b.dataset.ck); });
     this.dom.thr.addEventListener('input', () => this.on.throttle?.(Number(this.dom.thr.value) / 100));
@@ -53,15 +63,47 @@ export class GameUI {
   setLang(lang) {
     this.lang = lang; this.L = T(lang); this.dom.help.textContent = this.L.help; document.documentElement.lang = lang === 'zh' ? 'zh-Hant' : 'en';
     for (const b of this.dom.cfg.querySelectorAll('button')) b.textContent = this.L.cfg[b.dataset.cfg];
+    this.dom.autobar.querySelector('[data-auto="land"]').textContent = this.L.auto.land; this.dom.autobar.querySelector('[data-auto="guide"]').textContent = this.L.auto.guide;
+    this.root.querySelector('.t-auto').textContent = this.L.auto.land; this.root.querySelector('.t-guide').textContent = this.L.auto.guide;
     this.dom.check.querySelector('[data-ck="next"]').textContent = this.L.next; this._ck = null;
   }
 
   // ---- TAKEOFF / LANDING CONFIG buttons (and the 777's TO/GA): the one that applies now is lit
   setCfgBar(on, st) {
-    const d = this.dom.cfg; if (d.hidden === on) d.hidden = !on; if (!on) return;
+    const d = this.dom.cfg; if (d.hidden === on) d.hidden = !on; if (!on) { this.dom.autobar.hidden = true; return; }
     d.querySelector('[data-cfg="takeoff"]').classList.toggle('on', st.onGround);
     d.querySelector('[data-cfg="landing"]').classList.toggle('on', !st.onGround);
     const tg = d.querySelector('[data-cfg="toga"]'); if (tg.hidden !== !st.toga) tg.hidden = !st.toga;
+    const ab = this.dom.autobar; if (ab.hidden === on) ab.hidden = !on;
+    for (const b of this.root.querySelectorAll('[data-auto="land"], .t-auto')) b.classList.toggle('on', !!st.auto);
+    for (const b of this.root.querySelectorAll('[data-auto="guide"], .t-guide')) b.classList.toggle('on', !!st.guide);
+  }
+
+  // ---- M1.2 GUIDE ME bar: the most urgent instruction big (with its countdown), the next two small
+  showGuide(lines) {
+    const d = this.dom.guide, on = !!lines && lines.length > 0; if (d.hidden === on) d.hidden = !on; if (!on) return;
+    const [a, b, c] = lines, main = d.querySelector('.gd-main');
+    if (main.firstChild.textContent !== a.text) main.firstChild.textContent = a.text;
+    const cd = a.now ? '' : `${a.inS} s`; if (main.lastChild.textContent !== cd) main.lastChild.textContent = cd;
+    main.className = 'gd-main' + (a.now ? ' now' : '') + (a.warn ? ' warn' : '');
+    const ps = d.querySelectorAll('p'); [b, c].forEach((x, i) => { const t = x ? x.text : ''; if (ps[i].textContent !== t) ps[i].textContent = t; ps[i].hidden = !t; });
+    d.dataset.kind = a.kind;
+  }
+  showCaption(text) { const d = this.dom.cap, on = !!text; if (d.hidden === on) d.hidden = !on; if (on && d.textContent !== text) d.textContent = text; }
+  showAssist(text) { const d = this.dom.assist, on = !!text; if (d.hidden === on) d.hidden = !on; if (on && d.textContent !== text) d.textContent = text; }
+  // ILS deviation: localizer and glide-slope diamonds (dots, ±2.5 shown)
+  showIls(st) {
+    const d = this.dom.ils, on = !!st; if (d.hidden === on) d.hidden = !on; if (!on) return;
+    const c = (v) => Math.max(-2.5, Math.min(2.5, v)) / 2.5 * 50;
+    d.querySelector('.ils-loc i').style.transform = `translateX(${c(st.loc)}px)`;
+    d.querySelector('.ils-gs i').style.transform = `translateY(${c(-st.gs)}px)`; // above the path → diamond low (fly down)
+    const t = st.rwy; const sm = d.querySelector('small'); if (sm.textContent !== t) sm.textContent = t;
+  }
+  // the cue: the magenta target on the horizon (x, y in px), or the screen edge with an arrow toward it
+  showCue(st) {
+    const d = this.dom.cue, on = !!st; if (d.hidden === on) d.hidden = !on; if (!on) return;
+    d.style.transform = `translate(${st.x}px, ${st.y}px)`;
+    d.classList.toggle('edge', !st.onScreen); d.firstChild.style.transform = st.onScreen ? '' : `rotate(${st.ang}rad)`;
   }
   // ---- guided checklist: one step at a time, the key for the active input
   // every step listed: ✓ done, ▶ current (its full text, live value and key below), ○ still to come
@@ -185,7 +227,7 @@ export class GameUI {
     const lnd = r.landing;
     d.innerHTML = `<div class="sf-card">
       <h2>${r.crash ? L.crashed : L.landed}${lnd && !r.crash ? ` · ${lnd.runway ?? ''}` : ''}</h2>
-      ${r.crash ? `<p class="sf-crash">${L.crash[r.crash] || r.crash}</p>` : ''}
+      ${r.crash ? `<p class="sf-crash">${L.crash[r.crash] || r.crash}</p>${r.why ? `<p class="sf-why">${r.why}</p>` : ''}` : ''}
       ${lnd ? `<div class="sf-score"><div class="sf-grade">${lnd.grade}</div><div><b>${lnd.score}</b><small>${L.score}</small></div></div>
       <table>
         <tr><td>${L.sink}</td><td>${Math.round(lnd.sinkFpm)} fpm</td><td>${Math.round(lnd.sinkScore)}</td></tr>
@@ -219,5 +261,5 @@ export class GameUI {
 export class NullUI {
   constructor(lang, metars, opts) { this.lang = lang; this.metars = metars; this.opts = opts; this.on = {}; this.L = T(lang); this.dom = { panel: null }; this.root = { classList: { toggle() {} } }; }
   setLang(lang) { this.lang = lang; this.L = T(lang); }
-  hud() {} setThrottleSlider() {} setCfgBar() {} showChecklist() {} showHowTo() {} showMcp() {} showEngine() {} showMenu() {} hideOverlay() {} showResult() {} showRemap() {} dispose() {}
+  hud() {} setThrottleSlider() {} setCfgBar() {} showGuide() {} showCaption() {} showAssist() {} showIls() {} showCue() {} showChecklist() {} showHowTo() {} showMcp() {} showEngine() {} showMenu() {} hideOverlay() {} showResult() {} showRemap() {} dispose() {}
 }

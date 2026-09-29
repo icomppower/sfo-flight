@@ -3,7 +3,7 @@
 import { Vector3, Euler, MathUtils } from 'harbor-engine/src/engine/index.js';
 
 export const CAMS = ['cockpit', 'chase', 'tower', 'free'];
-export const SHOTS = ['establish', 'chase', 'wing', 'cockpit', 'tower', 'spotter', 'side', 'rollout'];
+export const SHOTS = ['establish', 'chase', 'wing', 'cockpit', 'tower', 'spotter', 'side', 'rollout', 'threshold'];
 
 export class Cameras {
   constructor(app, tower) {
@@ -37,6 +37,12 @@ export class Cameras {
         if (cut || !this.spot) { this.spot = new Vector3().copy(m).addScaledVector(flat, L * (name === 'side' ? 6 : 14)).addScaledVector(new Vector3(-flat.z, 0, flat.x), L * (name === 'side' ? 2.5 : 4)); this.spot.y = Math.max(ground(this.spot.x, this.spot.z), 0) + 2.2; }
         pos.copy(this.spot); at.copy(m); fov = MathUtils.clamp(1900 / Math.max(120, pos.distanceTo(m)) * (L / 60), 18, 55); tau = 0.3; break;
       }
+      case 'threshold': {
+        // beside the runway just past the threshold, looking back up the approach at the aircraft
+        const I = this.thrSpot, D = Math.PI / 180, cn = Math.cos(I.crs * D), ce = Math.sin(I.crs * D);
+        const x = I.thrE + ce * 120 - cn * 90, z = -(I.thrN + cn * 120 + ce * 90);
+        pos.set(x, Math.max(ground(x, z), 0) + 2.2, z); at.copy(m); fov = MathUtils.clamp(2600 / Math.max(120, pos.distanceTo(m)) * (L / 60), 12, 55); tau = 0.2; break;
+      }
       case 'rollout': pos.copy(m).addScaledVector(flat, -L * 1.2).addScaledVector(r, L * 1.1).add(new Vector3(0, L * 0.35, 0)); at.copy(m).addScaledVector(f, L * 0.4); fov = 50; break;
     }
     const gy = Math.max(ground(pos.x, pos.z), 0) + (name === 'cockpit' ? -1e9 : 1.5);
@@ -49,6 +55,17 @@ export class Cameras {
     if (this.look.yaw || this.look.pitch) { this._e.setFromQuaternion(cam.quaternion, 'YXZ'); this._e.y += this.look.yaw; this._e.x = MathUtils.clamp(this._e.x + this.look.pitch, -1.5, 1.5); cam.rotation.copy(this._e); }
     if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
     this.last = name;
+  }
+  // AUTO LAND's director: wide over the bay, chase and wing far out, the flight deck on short final, a spotter at the
+  // threshold for the last 200 ft, the rollout on the ground (C hands the camera back)
+  directAuto(sim, t, A) {
+    const I = A.rwy; if (!I) return 'chase';
+    const dNm = Math.hypot(sim.pos[0] - I.thrN, sim.pos[1] - I.thrE) / 1852, ra = sim.agl / 0.3048;
+    if (sim.onGround) return sim.gs < 12 ? 'chase' : 'rollout';
+    if (A.g?.onFinal && ra < 200 && dNm < 1.5) { this.thrSpot = I; return 'threshold'; }
+    if (A.g?.onFinal && dNm < 4) return 'cockpit';
+    const cyc = ['establish', 'chase', 'wing', 'chase'];
+    return cyc[Math.floor(t / 12) % cyc.length];
   }
   // replay director: a shot for the flight phase, re-cut every ~12 s in cruise
   direct(sim, t, nearRwy) {
